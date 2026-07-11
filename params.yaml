@@ -1,0 +1,20 @@
+seed: 42
+
+data:
+  raw_path: data/raw/ml-100k/u.data
+  processed_dir: data/processed
+  test_size: 0.2
+  valid_size: 0.1
+
+model:
+  name: mlp
+  embedding_dim: 64
+  hidden_dim: 128
+
+training:
+  epochs: 5
+  batch_size: 256
+  learning_rate: 0.001
+
+evaluation:
+  top_k: 10
