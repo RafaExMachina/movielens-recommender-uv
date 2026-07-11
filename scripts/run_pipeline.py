@@ -7,11 +7,18 @@ from recommender.pipeline.training_pipeline import TrainingPipeline
 
 def parse_args() -> argparse.Namespace:
     """Lê argumentos de linha de comando."""
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Executa o pipeline reprodutível do MovieLens."
+    )
     parser.add_argument(
         "stage",
-        choices=["prepare", "train", "evaluate", "all"],
+        choices=["preprocess", "feature_eng", "train", "evaluate", "all"],
         help="Etapa do pipeline a ser executada.",
+    )
+    parser.add_argument(
+        "--params",
+        default="params.yaml",
+        help="Caminho para o arquivo de parâmetros.",
     )
     return parser.parse_args()
 
@@ -19,10 +26,12 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     """Executa a etapa selecionada."""
     args = parse_args()
-    pipeline = TrainingPipeline(params_path="params.yaml")
+    pipeline = TrainingPipeline(params_path=args.params)
 
-    if args.stage == "prepare":
-        pipeline.prepare()
+    if args.stage == "preprocess":
+        pipeline.preprocess()
+    elif args.stage == "feature_eng":
+        pipeline.feature_engineering()
     elif args.stage == "train":
         pipeline.train()
     elif args.stage == "evaluate":

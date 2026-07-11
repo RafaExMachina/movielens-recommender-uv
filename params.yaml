@@ -2,7 +2,9 @@ seed: 42
 
 data:
   raw_path: data/raw/ml-100k/u.data
+  interim_path: data/interim/ratings_clean.csv
   processed_dir: data/processed
+  metadata_path: data/processed/metadata.json
   test_size: 0.2
   valid_size: 0.1
 
@@ -15,6 +17,14 @@ training:
   epochs: 5
   batch_size: 256
   learning_rate: 0.001
+
+tracking:
+  experiment_name: movielens-recommender
+
+artifacts:
+  model_path: models/checkpoints/model.pt
+  train_metrics_path: reports/metrics/train_metrics.json
+  evaluation_metrics_path: reports/metrics/evaluation_metrics.json
 
 evaluation:
   top_k: 10

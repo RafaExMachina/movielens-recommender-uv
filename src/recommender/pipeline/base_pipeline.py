@@ -4,17 +4,22 @@ from abc import ABC, abstractmethod
 
 
 class BasePipeline(ABC):
-    """Template Method para pipelines de ML."""
+    """Template Method para pipelines de Machine Learning."""
 
     def run(self) -> None:
-        """Executa o fluxo padrão completo."""
-        self.prepare()
+        """Executa o pipeline completo na ordem definida."""
+        self.preprocess()
+        self.feature_engineering()
         self.train()
         self.evaluate()
 
     @abstractmethod
-    def prepare(self) -> None:
-        """Prepara os dados."""
+    def preprocess(self) -> None:
+        """Limpa e persiste os dados intermediários."""
+
+    @abstractmethod
+    def feature_engineering(self) -> None:
+        """Constrói features e divisões de treino, validação e teste."""
 
     @abstractmethod
     def train(self) -> None:
