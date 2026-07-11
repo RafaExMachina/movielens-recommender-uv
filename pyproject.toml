@@ -1,0 +1,58 @@
+[project]
+name = "movielens-recommender"
+version = "0.1.0"
+description = "Sistema de recomendação MovieLens com PyTorch, MLflow, DVC, Docker e uv"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+authors = [{ name = "Rafael Alves da Costa" }]
+
+dependencies = [
+    "torch>=2.3.0",
+    "pandas>=2.2.0",
+    "numpy>=1.26.4,<2.0.0",
+    "scikit-learn>=1.5.0",
+    "mlflow==2.14.0",
+    "dvc>=3.50.0",
+    "pyyaml>=6.0.1",
+    "python-dotenv>=1.0.1",
+    "setuptools>=70,<81",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2.0",
+    "ruff>=0.5.0",
+    "mypy>=1.10.0",
+    "pre-commit>=3.7.0",
+]
+
+[tool.uv]
+package = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/recommender"]
+
+[tool.ruff]
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N"]
+ignore = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+filterwarnings = [
+    "ignore:Type google\\._upb\\._message\\..* uses PyType_Spec.*:DeprecationWarning",
+    "ignore:pkg_resources is deprecated as an API:UserWarning",
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

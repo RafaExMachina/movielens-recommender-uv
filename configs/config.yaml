@@ -1,0 +1,8 @@
+project:
+  name: movielens-recommender
+
+paths:
+  raw_data: data/raw/ml-100k/u.data
+  processed_dir: data/processed
+  model_dir: models/checkpoints
+  metrics_dir: reports/metrics

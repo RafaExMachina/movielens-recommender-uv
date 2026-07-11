@@ -1,0 +1,244 @@
+# ============================================================
+# Python
+# ============================================================
+
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
+
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ============================================================
+# Ambientes virtuais
+# ============================================================
+
+.venv/
+venv/
+env/
+ENV/
+venv.bak/
+env.bak/
+
+# ============================================================
+# Variáveis de ambiente e segredos
+# ============================================================
+
+.env
+.env.*
+!.env.example
+
+.secrets/
+*.pem
+*.key
+
+# ============================================================
+# Testes, cobertura e qualidade
+# ============================================================
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+coverage.json
+htmlcov/
+.cache/
+.pytype/
+.pyre/
+.pre-commit-cache/
+
+# ============================================================
+# Jupyter
+# ============================================================
+
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+*.nbconvert.ipynb
+
+# ============================================================
+# MLflow
+# ============================================================
+
+/mlruns/
+/mlartifacts/
+/mlflow.db
+/mlflow.sqlite
+/mlflow.sqlite3
+*.db-journal
+*.db-shm
+*.db-wal
+
+# ============================================================
+# DVC
+# ============================================================
+
+/.dvc/cache/
+/.dvc/tmp/
+/.dvc/.cache/
+/.dvc/config.local
+
+# ============================================================
+# Dados
+# ============================================================
+
+/data/raw/*
+!/data/raw/.gitkeep
+
+/data/interim/*
+!/data/interim/.gitkeep
+
+/data/processed/*
+!/data/processed/.gitkeep
+
+/data/features/*
+!/data/features/.gitkeep
+
+/data/external/*
+!/data/external/.gitkeep
+
+*.csv
+*.tsv
+*.parquet
+*.feather
+*.h5
+*.hdf5
+*.npy
+*.npz
+
+!tests/fixtures/**/*.csv
+!tests/fixtures/**/*.tsv
+!tests/fixtures/**/*.json
+
+# ============================================================
+# Modelos
+# ============================================================
+
+/models/checkpoints/*
+!/models/checkpoints/.gitkeep
+
+/models/registry/*
+!/models/registry/.gitkeep
+
+/models/exported/*
+!/models/exported/.gitkeep
+
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.joblib
+*.pickle
+*.pkl
+*.safetensors
+
+# ============================================================
+# Relatórios
+# ============================================================
+
+/reports/figures/*
+!/reports/figures/.gitkeep
+
+/reports/metrics/*
+!/reports/metrics/.gitkeep
+
+/reports/predictions/*
+!/reports/predictions/.gitkeep
+
+# ============================================================
+# Logs e temporários
+# ============================================================
+
+*.log
+logs/
+tmp/
+temp/
+.tmp/
+.temp/
+*.tmp
+*.temp
+*.bak
+*.old
+
+# ============================================================
+# IDEs
+# ============================================================
+
+.vscode/
+.idea/
+*.code-workspace
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# ============================================================
+# Sistema operacional
+# ============================================================
+
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ============================================================
+# Docker
+# ============================================================
+
+docker-compose.override.yml
+
+# ============================================================
+# Compactados
+# ============================================================
+
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# ============================================================
+# Projeto MovieLens
+# ============================================================
+
+/data/raw/ml-100k/
+/data/raw/ml-1m/
+/data/raw/ml-10m/
+/data/raw/ml-20m/
+/data/raw/ml-25m/
+
+/checkpoints/
+/artifacts/
+/outputs/
+/runs/
+
+*.prof
+*.lprof
+profile-results/

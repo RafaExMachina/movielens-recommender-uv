@@ -1,0 +1,4 @@
+model:
+  name: mlp
+  embedding_dim: 64
+  hidden_dim: 128
