@@ -5,7 +5,7 @@ Sistema de recomendação baseado no dataset **MovieLens 100K**, estruturado com
 Versão atual:
 
 ```text
-0.3.0
+0.3.1
 ```
 
 O repositório contém as seguintes entregas:
@@ -722,7 +722,7 @@ Ou:
 make test
 ```
 
-A versão `0.3.0` possui **16 testes automatizados**.
+A versão `0.3.1` possui **16 testes automatizados**.
 
 ## Verificação de qualidade
 
@@ -794,8 +794,8 @@ uv build
 Arquivos esperados:
 
 ```text
-dist/movielens_recommender-0.3.0.tar.gz
-dist/movielens_recommender-0.3.0-py3-none-any.whl
+dist/movielens_recommender-0.3.1.tar.gz
+dist/movielens_recommender-0.3.1-py3-none-any.whl
 ```
 
 Confira a versão instalada:
@@ -808,7 +808,7 @@ uv run python -c \
 Resultado esperado:
 
 ```text
-0.3.0
+0.3.1
 ```
 
 ## Integração contínua
@@ -979,7 +979,7 @@ docker compose down
 - Docker Compose;
 - healthcheck do MLflow;
 - pipeline reproduzível dentro do contêiner;
-- versão `0.3.0`.
+- versão `0.3.1`.
 
 ## Próximas etapas
 
@@ -1012,5 +1012,5 @@ docker compose config
 Estado validado na versão:
 
 ```text
-0.3.0
+0.3.1
 ```

@@ -239,3 +239,16 @@ stages:
       hash: md5
       md5: 2599982df365da66d8b3f416cb05a9ae
       size: 63
+  download:
+    cmd: uv run python scripts/download_data.py
+    deps:
+    - path: scripts/download_data.py
+      hash: md5
+      md5: 7c2b0a25817661366801619c31d5a137
+      size: 990
+    outs:
+    - path: data/raw/ml-100k
+      hash: md5
+      md5: 33e3b98f41ab1289116f74de90b95a24.dir
+      size: 16100896
+      nfiles: 23

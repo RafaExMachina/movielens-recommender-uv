@@ -1,4 +1,12 @@
 stages:
+  download:
+    cmd: uv run python scripts/download_data.py
+    deps:
+      - scripts/download_data.py
+    outs:
+      - data/raw/ml-100k:
+          cache: false
+
   preprocess:
     cmd: uv run python scripts/run_pipeline.py preprocess
     deps:
@@ -91,3 +99,4 @@ stages:
     metrics:
       - reports/metrics/evaluation_metrics.json:
           cache: false
+
