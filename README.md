@@ -69,9 +69,10 @@ Foram implementados:
 
 Foram implementados:
 
-- dataset MovieLens 100K versionado com DVC;
-- remote DVC local;
-- pipeline com quatro estágios:
+- download reproduzível do dataset público MovieLens 100K;
+- remote DVC local para dados derivados, modelos e demais artefatos cacheados;
+- pipeline com cinco estágios:
+  - `download`;
   - `preprocess`;
   - `feature_eng`;
   - `train`;
@@ -80,7 +81,7 @@ Foram implementados:
 - estado reproduzível registrado em `dvc.lock`;
 - métricas de treinamento e avaliação rastreadas pelo DVC;
 - execução incremental com `dvc repro`;
-- execução forçada com `dvc repro --force`;
+- execução completa com `dvc repro --force --no-run-cache`;
 - rastreamento de experimentos com MLflow;
 - servidor MLflow 2.14.0 com backend SQLite;
 - persistência do MLflow em volume Docker;
@@ -88,7 +89,8 @@ Foram implementados:
 - execução do pipeline com usuário não-root;
 - orquestração com Docker Compose;
 - healthcheck do servidor MLflow;
-- execução de `dvc pull`, `dvc repro`, `dvc push`, métricas e status dentro do contêiner;
+- execução de `dvc repro`, `dvc push`, métricas e status dentro do contêiner;
+- validação do pipeline no Docker Compose;
 - validação da persistência dos experimentos após reiniciar os serviços.
 
 ## Tecnologias
@@ -130,7 +132,7 @@ movielens-recommender-uv/
 │   ├── interim/
 │   ├── processed/
 │   └── raw/
-│       └── ml-100k.dvc
+│       └── ml-100k/              # gerado pelo estágio download
 ├── models/
 │   ├── checkpoints/
 │   ├── exported/
@@ -417,25 +419,39 @@ Essa separação evita misturar configurações de infraestrutura com hiperparâ
 
 ## Versionamento de dados com DVC
 
-O dataset bruto é representado no Git por:
+O dataset MovieLens 100K é público e é obtido diretamente da fonte oficial pelo estágio `download` do pipeline DVC:
 
 ```text
-data/raw/ml-100k.dvc
+scripts/download_data.py
 ```
 
-O conteúdo real é armazenado no remote DVC, não diretamente no repositório Git.
+O diretório gerado é:
 
-Recupere os dados e artefatos:
+```text
+data/raw/ml-100k/
+```
+
+Esse diretório não é versionado pelo Git e não depende de um arquivo `data/raw/ml-100k.dvc`. Quando o dataset não existe, o comando abaixo executa o download automaticamente:
+
+```bash
+uv run dvc repro
+```
+
+Os dados derivados, modelos e demais outputs cacheados continuam sendo controlados pelo DVC.
+
+Envie os artefatos disponíveis no cache para o remote:
+
+```bash
+uv run dvc push
+```
+
+Opcionalmente, recupere artefatos cacheados de uma execução anterior:
 
 ```bash
 uv run dvc pull
 ```
 
-Envie dados e artefatos atualizados ao remote:
-
-```bash
-uv run dvc push
-```
+O `dvc pull` não é necessário para obter o dataset bruto, pois ele é recriado pelo estágio `download`.
 
 Verifique o estado:
 
@@ -443,7 +459,7 @@ Verifique o estado:
 uv run dvc status
 ```
 
-Resultado esperado quando tudo estiver sincronizado:
+Resultado esperado quando tudo estiver atualizado:
 
 ```text
 Data and pipelines are up to date.
@@ -457,7 +473,13 @@ O projeto utiliza um remote local localizado fora do repositório:
 ../movielens-dvc-storage
 ```
 
-Esse diretório não é enviado ao GitHub e deve estar disponível para os comandos `dvc pull` e `dvc push`.
+Esse diretório não é enviado ao GitHub. Ele é utilizado para armazenar outputs cacheados do DVC, como dados processados e modelos.
+
+Crie o diretório quando necessário:
+
+```bash
+mkdir -p ../movielens-dvc-storage
+```
 
 ## Pipeline DVC
 
@@ -470,16 +492,25 @@ dvc.yaml
 A sequência é:
 
 ```text
-data/raw/ml-100k.dvc
-        ↓
+download
+   ↓
 preprocess
-        ↓
+   ↓
 feature_eng
-        ↓
+   ↓
 train
-        ↓
+   ↓
 evaluate
 ```
+
+### Estágio `download`
+
+Responsável por:
+
+- baixar o MovieLens 100K da fonte oficial;
+- extrair o conteúdo em `data/raw/ml-100k/`;
+- permitir a reconstrução do dataset sem depender de um remote DVC;
+- evitar download desnecessário quando o dataset já existe.
 
 ### Estágio `preprocess`
 
@@ -523,10 +554,10 @@ uv run dvc repro
 
 Quando dados, código, parâmetros e outputs não mudaram, o DVC pula os estágios atualizados.
 
-Force a execução completa:
+Force a execução completa sem reutilizar o cache de execuções anteriores:
 
 ```bash
-uv run dvc repro --force
+uv run dvc repro --force --no-run-cache
 ```
 
 Visualize as métricas:
@@ -641,11 +672,12 @@ docker compose run --rm pipeline
 O serviço executa:
 
 1. configuração do DVC em modo `no_scm`;
-2. `dvc pull`;
-3. `dvc repro`;
-4. `dvc push`;
-5. `dvc metrics show`;
-6. `dvc status`.
+2. `dvc repro`;
+3. `dvc push`;
+4. `dvc metrics show`;
+5. `dvc status`.
+
+O estágio `download` obtém automaticamente o MovieLens 100K quando o dataset bruto ainda não existe.
 
 A execução normal é incremental. Sem alterações, os estágios são pulados.
 
@@ -659,15 +691,14 @@ docker compose run --rm pipeline \
       "    no_scm = true" \
       > /app/.dvc/config.local
 
-    uv run dvc pull data/raw/ml-100k.dvc
-    uv run dvc repro --force
+    uv run dvc repro --force --no-run-cache
     uv run dvc push
     uv run dvc metrics show
     uv run dvc status
   '
 ```
 
-Esse comando executa novamente `preprocess`, `feature_eng`, `train` e `evaluate`, criando um novo run no MLflow.
+Esse comando executa novamente `download`, `preprocess`, `feature_eng`, `train` e `evaluate`, criando um novo run no MLflow.
 
 ### 6. Encerrar os serviços
 
@@ -860,10 +891,10 @@ reports/predictions/*
 
 São versionados:
 
-- `data/raw/ml-100k.dvc`;
 - `dvc.yaml`;
 - `dvc.lock`;
 - `params.yaml`;
+- `scripts/download_data.py`;
 - métricas JSON em `reports/metrics/`;
 - arquivos `.gitkeep` necessários.
 
@@ -875,9 +906,9 @@ São versionados:
 | `uv sync --locked --no-dev` | instala apenas dependências de produção |
 | `uv lock --check` | verifica se o lockfile está atualizado |
 | `uv run python scripts/validate_env.py` | valida o ambiente |
-| `uv run dvc pull` | recupera dados e artefatos do remote |
-| `uv run dvc repro` | executa o pipeline incremental |
-| `uv run dvc repro --force` | força todos os estágios |
+| `uv run dvc pull` | recupera artefatos cacheados do remote, de forma opcional |
+| `uv run dvc repro` | baixa o dataset quando necessário e executa o pipeline incremental |
+| `uv run dvc repro --force --no-run-cache` | força todos os estágios sem reutilizar o cache de execução |
 | `uv run dvc push` | envia dados e artefatos ao remote |
 | `uv run dvc metrics show` | exibe métricas |
 | `uv run dvc status` | verifica o estado do pipeline |
@@ -901,14 +932,14 @@ cd movielens-recommender-uv
 
 uv sync --locked
 uv run python scripts/validate_env.py
-uv run dvc pull
+mkdir -p ../movielens-dvc-storage
 uv run dvc repro
 uv run dvc metrics show
 make check
 uv build
 ```
 
-O remote DVC local deve estar disponível para que `dvc pull` funcione.
+O dataset bruto é baixado automaticamente pelo estágio `download`. O remote DVC local é utilizado para armazenar e recuperar artefatos cacheados, mas não é necessário para obter o MovieLens 100K.
 
 ## Reproduzir a entrega com Docker
 
@@ -918,6 +949,8 @@ cd movielens-recommender-uv
 
 export LOCAL_UID="$(id -u)"
 export LOCAL_GID="$(id -g)"
+
+mkdir -p ../movielens-dvc-storage
 
 docker compose build pipeline
 docker compose up -d mlflow
@@ -966,9 +999,9 @@ docker compose down
 
 ### Etapa 3
 
-- dataset versionado com DVC;
-- remote DVC configurado;
-- pipeline com quatro estágios;
+- download reproduzível do dataset público MovieLens 100K;
+- remote DVC configurado para artefatos cacheados;
+- pipeline com cinco estágios;
 - `dvc.yaml` e `dvc.lock`;
 - métricas versionadas;
 - execução incremental e forçada;
@@ -1001,6 +1034,7 @@ A entrega está validada quando os comandos abaixo terminam sem erros:
 uv lock --check
 uv sync --locked
 uv run python scripts/validate_env.py
+uv run dvc repro
 uv run dvc status
 uv run ruff check src tests scripts
 uv run mypy src
@@ -1014,3 +1048,4 @@ Estado validado na versão:
 ```text
 0.3.1
 ```
+
