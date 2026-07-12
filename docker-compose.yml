@@ -1,0 +1,115 @@
+services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.14.0
+    container_name: movielens-mlflow
+    restart: unless-stopped
+
+    ports:
+      - "5000:5000"
+
+    volumes:
+      - mlflow_data:/mlflow
+
+    command:
+      - mlflow
+      - server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --backend-store-uri
+      - sqlite:////mlflow/mlflow.db
+      - --artifacts-destination
+      - /mlflow/artifacts
+
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >
+          import urllib.request;
+          urllib.request.urlopen(
+              "http://127.0.0.1:5000/version",
+              timeout=3
+          )
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        LOCAL_UID: ${LOCAL_UID:-1000}
+        LOCAL_GID: ${LOCAL_GID:-1000}
+
+    container_name: movielens-pipeline
+    init: true
+    working_dir: /app
+
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      APP_ENV: production
+      LOG_LEVEL: INFO
+      GIT_PYTHON_REFRESH: quiet
+
+      HOME: /home/appuser
+      TORCHINDUCTOR_CACHE_DIR: /tmp/torchinductor
+      XDG_CACHE_HOME: /tmp/.cache
+
+      # Desativa telemetria dentro do contêiner.
+      DVC_NO_ANALYTICS: "true"
+
+    depends_on:
+      mlflow:
+        condition: service_healthy
+
+    volumes:
+      # Dados e artefatos persistidos no host.
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./reports:/app/reports
+
+      # Cache DVC persistido entre execuções.
+      - dvc_cache:/app/.dvc/cache
+
+      # Remote local configurado em .dvc/config.
+      - ../movielens-dvc-storage:/movielens-dvc-storage
+
+    command:
+      - sh
+      - -eu
+      - -c
+      - |
+        echo "Configurando o DVC para execução sem Git..."
+
+        printf '%s\n' \
+          '[core]' \
+          '    no_scm = true' \
+          > /app/.dvc/config.local
+
+        echo "Configuração DVC utilizada:"
+        cat /app/.dvc/config.local
+
+        echo "Recuperando o dataset bruto com DVC..."
+        uv run dvc pull data/raw/ml-100k.dvc
+
+        echo "Executando o pipeline reproduzível..."
+        uv run dvc repro
+
+        echo "Enviando os novos artefatos ao remote DVC..."
+        uv run dvc push
+
+        echo "Métricas produzidas:"
+        uv run dvc metrics show
+
+        echo "Status final do pipeline:"
+        uv run dvc status
+
+volumes:
+  mlflow_data:
+  dvc_cache:

@@ -1,0 +1,93 @@
+stages:
+  preprocess:
+    cmd: uv run python scripts/run_pipeline.py preprocess
+    deps:
+      - data/raw/ml-100k/u.data
+      - scripts/run_pipeline.py
+      - src/recommender/data/movielens_loader.py
+      - src/recommender/pipeline/base_pipeline.py
+      - src/recommender/pipeline/training_pipeline.py
+      - src/recommender/utils/config.py
+    params:
+      - data.raw_path
+      - data.interim_path
+    outs:
+      - data/interim/ratings_clean.csv
+
+  feature_eng:
+    cmd: uv run python scripts/run_pipeline.py feature_eng
+    deps:
+      - data/interim/ratings_clean.csv
+      - scripts/run_pipeline.py
+      - src/recommender/data/split.py
+      - src/recommender/features/build_features.py
+      - src/recommender/pipeline/base_pipeline.py
+      - src/recommender/pipeline/training_pipeline.py
+      - src/recommender/utils/config.py
+    params:
+      - seed
+      - data.interim_path
+      - data.processed_dir
+      - data.metadata_path
+      - data.test_size
+      - data.valid_size
+    outs:
+      - data/processed/train.csv
+      - data/processed/valid.csv
+      - data/processed/test.csv
+      - data/processed/metadata.json
+
+  train:
+    cmd: uv run python scripts/run_pipeline.py train
+    deps:
+      - data/processed/train.csv
+      - data/processed/valid.csv
+      - data/processed/metadata.json
+      - scripts/run_pipeline.py
+      - src/recommender/data/dataset.py
+      - src/recommender/evaluation
+      - src/recommender/models
+      - src/recommender/pipeline
+      - src/recommender/repositories/artifact_repository.py
+      - src/recommender/tracking/mlflow_tracker.py
+      - src/recommender/training
+      - src/recommender/utils/config.py
+      - src/recommender/utils/seed.py
+    params:
+      - seed
+      - model
+      - training
+      - tracking.experiment_name
+      - data.processed_dir
+      - data.metadata_path
+      - artifacts.model_path
+      - artifacts.train_metrics_path
+    outs:
+      - models/checkpoints/model.pt
+    metrics:
+      - reports/metrics/train_metrics.json:
+          cache: false
+
+  evaluate:
+    cmd: uv run python scripts/run_pipeline.py evaluate
+    deps:
+      - data/processed/test.csv
+      - data/processed/metadata.json
+      - models/checkpoints/model.pt
+      - scripts/run_pipeline.py
+      - src/recommender/data/dataset.py
+      - src/recommender/evaluation
+      - src/recommender/models
+      - src/recommender/pipeline
+      - src/recommender/repositories/artifact_repository.py
+      - src/recommender/utils/config.py
+    params:
+      - model
+      - training.batch_size
+      - data.processed_dir
+      - data.metadata_path
+      - artifacts.model_path
+      - artifacts.evaluation_metrics_path
+    metrics:
+      - reports/metrics/evaluation_metrics.json:
+          cache: false

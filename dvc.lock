@@ -1,0 +1,241 @@
+schema: '2.0'
+stages:
+  preprocess:
+    cmd: uv run python scripts/run_pipeline.py preprocess
+    deps:
+    - path: data/raw/ml-100k/u.data
+      hash: md5
+      md5: 6e47046882bad158b0efbb84cd5cb987
+      size: 1979173
+    - path: scripts/run_pipeline.py
+      hash: md5
+      md5: abeb83d197a564af01f5654b3d6ca5f2
+      size: 1151
+    - path: src/recommender/data/movielens_loader.py
+      hash: md5
+      md5: db561446ae1292ede7e0b91631775a38
+      size: 663
+    - path: src/recommender/pipeline/base_pipeline.py
+      hash: md5
+      md5: 769d00f39dbfa51d93268d1c1022cf10
+      size: 773
+    - path: src/recommender/pipeline/training_pipeline.py
+      hash: md5
+      md5: ffead9c70179b5901dd654f2a6245461
+      size: 15242
+    - path: src/recommender/utils/config.py
+      hash: md5
+      md5: 505ad66378e57f36caa6c28b39807af8
+      size: 430
+    params:
+      params.yaml:
+        data.interim_path: data/interim/ratings_clean.csv
+        data.raw_path: data/raw/ml-100k/u.data
+    outs:
+    - path: data/interim/ratings_clean.csv
+      hash: md5
+      md5: f62b4a05170b8891b018ebfefde4000c
+      size: 1979206
+  feature_eng:
+    cmd: uv run python scripts/run_pipeline.py feature_eng
+    deps:
+    - path: data/interim/ratings_clean.csv
+      hash: md5
+      md5: f62b4a05170b8891b018ebfefde4000c
+      size: 1979206
+    - path: scripts/run_pipeline.py
+      hash: md5
+      md5: abeb83d197a564af01f5654b3d6ca5f2
+      size: 1151
+    - path: src/recommender/data/split.py
+      hash: md5
+      md5: e60e58d70573652cd416b6482c684e96
+      size: 1268
+    - path: src/recommender/features/build_features.py
+      hash: md5
+      md5: 47f5695ecc27f75b37e422bac0113319
+      size: 1879
+    - path: src/recommender/pipeline/base_pipeline.py
+      hash: md5
+      md5: 769d00f39dbfa51d93268d1c1022cf10
+      size: 773
+    - path: src/recommender/pipeline/training_pipeline.py
+      hash: md5
+      md5: ffead9c70179b5901dd654f2a6245461
+      size: 15242
+    - path: src/recommender/utils/config.py
+      hash: md5
+      md5: 505ad66378e57f36caa6c28b39807af8
+      size: 430
+    params:
+      params.yaml:
+        data.interim_path: data/interim/ratings_clean.csv
+        data.metadata_path: data/processed/metadata.json
+        data.processed_dir: data/processed
+        data.test_size: 0.2
+        data.valid_size: 0.1
+        seed: 42
+    outs:
+    - path: data/processed/metadata.json
+      hash: md5
+      md5: a7cfb04cab6b4faba7e017c4f063efb6
+      size: 43
+    - path: data/processed/test.csv
+      hash: md5
+      md5: fd48ebcfbffbef114ddf53956120098a
+      size: 680774
+    - path: data/processed/train.csv
+      hash: md5
+      md5: d9ce63a8d0b1a25c1303174b85100785
+      size: 2382063
+    - path: data/processed/valid.csv
+      hash: md5
+      md5: b2fe529216ffb893e2d51d1358d069bd
+      size: 340428
+  train:
+    cmd: uv run python scripts/run_pipeline.py train
+    deps:
+    - path: data/processed/metadata.json
+      hash: md5
+      md5: a7cfb04cab6b4faba7e017c4f063efb6
+      size: 43
+    - path: data/processed/train.csv
+      hash: md5
+      md5: d9ce63a8d0b1a25c1303174b85100785
+      size: 2382063
+    - path: data/processed/valid.csv
+      hash: md5
+      md5: b2fe529216ffb893e2d51d1358d069bd
+      size: 340428
+    - path: scripts/run_pipeline.py
+      hash: md5
+      md5: abeb83d197a564af01f5654b3d6ca5f2
+      size: 1151
+    - path: src/recommender/data/dataset.py
+      hash: md5
+      md5: 6574dee4bfa3555322ff9005ee82e34a
+      size: 1783
+    - path: src/recommender/evaluation
+      hash: md5
+      md5: 04e1afd959cec262b2819d6c1d840f5f.dir
+      size: 11604
+      nfiles: 8
+    - path: src/recommender/models
+      hash: md5
+      md5: 8caaa27e823551084a0def03c851de0b.dir
+      size: 9587
+      nfiles: 10
+    - path: src/recommender/pipeline
+      hash: md5
+      md5: a0431c99ad54f99ddf9b99e7528f18b3.dir
+      size: 36471
+      nfiles: 7
+    - path: src/recommender/repositories/artifact_repository.py
+      hash: md5
+      md5: ae1858f05a64335b1238148913784b2a
+      size: 722
+    - path: src/recommender/tracking/mlflow_tracker.py
+      hash: md5
+      md5: cfb3309034c6a33e98badabb1343be51
+      size: 5865
+    - path: src/recommender/training
+      hash: md5
+      md5: 854c970ecf2d56f4fd1d8062a3b6551d.dir
+      size: 6771
+      nfiles: 9
+    - path: src/recommender/utils/config.py
+      hash: md5
+      md5: 505ad66378e57f36caa6c28b39807af8
+      size: 430
+    - path: src/recommender/utils/seed.py
+      hash: md5
+      md5: 14b67b024fdb1cb44bd13b6a06eadfa9
+      size: 345
+    params:
+      params.yaml:
+        artifacts.model_path: models/checkpoints/model.pt
+        artifacts.train_metrics_path: reports/metrics/train_metrics.json
+        data.metadata_path: data/processed/metadata.json
+        data.processed_dir: data/processed
+        model:
+          name: mlp
+          embedding_dim: 64
+          hidden_dim: 128
+        seed: 42
+        tracking.experiment_name: movielens-recommender
+        training:
+          epochs: 5
+          batch_size: 256
+          learning_rate: 0.001
+    outs:
+    - path: models/checkpoints/model.pt
+      hash: md5
+      md5: 12fffb791640bf5a9d083dc1d33ba60c
+      size: 741373
+    - path: reports/metrics/train_metrics.json
+      hash: md5
+      md5: 82baa289f8ada05e277fc778ef79eca7
+      size: 113
+  evaluate:
+    cmd: uv run python scripts/run_pipeline.py evaluate
+    deps:
+    - path: data/processed/metadata.json
+      hash: md5
+      md5: a7cfb04cab6b4faba7e017c4f063efb6
+      size: 43
+    - path: data/processed/test.csv
+      hash: md5
+      md5: fd48ebcfbffbef114ddf53956120098a
+      size: 680774
+    - path: models/checkpoints/model.pt
+      hash: md5
+      md5: 12fffb791640bf5a9d083dc1d33ba60c
+      size: 741373
+    - path: scripts/run_pipeline.py
+      hash: md5
+      md5: abeb83d197a564af01f5654b3d6ca5f2
+      size: 1151
+    - path: src/recommender/data/dataset.py
+      hash: md5
+      md5: 6574dee4bfa3555322ff9005ee82e34a
+      size: 1783
+    - path: src/recommender/evaluation
+      hash: md5
+      md5: 04e1afd959cec262b2819d6c1d840f5f.dir
+      size: 11604
+      nfiles: 8
+    - path: src/recommender/models
+      hash: md5
+      md5: 8caaa27e823551084a0def03c851de0b.dir
+      size: 9587
+      nfiles: 10
+    - path: src/recommender/pipeline
+      hash: md5
+      md5: a0431c99ad54f99ddf9b99e7528f18b3.dir
+      size: 36471
+      nfiles: 7
+    - path: src/recommender/repositories/artifact_repository.py
+      hash: md5
+      md5: ae1858f05a64335b1238148913784b2a
+      size: 722
+    - path: src/recommender/utils/config.py
+      hash: md5
+      md5: 505ad66378e57f36caa6c28b39807af8
+      size: 430
+    params:
+      params.yaml:
+        artifacts.evaluation_metrics_path: 
+          reports/metrics/evaluation_metrics.json
+        artifacts.model_path: models/checkpoints/model.pt
+        data.metadata_path: data/processed/metadata.json
+        data.processed_dir: data/processed
+        model:
+          name: mlp
+          embedding_dim: 64
+          hidden_dim: 128
+        training.batch_size: 256
+    outs:
+    - path: reports/metrics/evaluation_metrics.json
+      hash: md5
+      md5: 2599982df365da66d8b3f416cb05a9ae
+      size: 63

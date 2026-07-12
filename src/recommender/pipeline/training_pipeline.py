@@ -1,22 +1,24 @@
 """Pipeline principal de treinamento."""
 
+import copy
 import json
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import mlflow
-import numpy as np
 import pandas as pd
 import torch
-from numpy.typing import NDArray
 from torch.utils.data import DataLoader
 
 from recommender.data.dataset import MovieLensDataset
 from recommender.data.movielens_loader import load_ratings
-from recommender.data.preprocess import encode_ids, normalize_ratings
 from recommender.data.split import split_data
 from recommender.evaluation.evaluator import Evaluator
 from recommender.evaluation.metric_strategy import MAEStrategy, RMSEStrategy
+from recommender.features.build_features import (
+    build_model_features,
+    build_model_metadata,
+)
 from recommender.models.base import BaseRecommender
 from recommender.models.model_factory import create_model
 from recommender.pipeline.base_pipeline import BasePipeline
@@ -29,99 +31,199 @@ from recommender.utils.config import load_yaml
 from recommender.utils.seed import set_seed
 
 Batch = tuple[torch.Tensor, torch.Tensor, torch.Tensor]
-MLflowInputExample = NDArray[np.int64]
 
 
 class TrainingPipeline(BasePipeline):
-    """Pipeline de treino do sistema de recomendação.
+    """Pipeline de treino do sistema de recomendação."""
 
-    Attributes:
-        params: Configurações carregadas do arquivo YAML.
-        repository: Repositório para persistência de artefatos.
-        processed_dir: Diretório onde os dados processados são salvos.
-        checkpoint_path: Caminho para o checkpoint do modelo.
-        metadata_path: Caminho para o JSON de metadados do modelo.
-    """
-
-    def __init__(self, params_path: str) -> None:
-        """Inicializa pipeline.
+    def __init__(self, params_path: str | Path) -> None:
+        """Inicializa o pipeline.
 
         Args:
-            params_path: Caminho para o arquivo de configuração YAML.
+            params_path: Caminho para o arquivo de parâmetros YAML.
         """
         self.params = load_yaml(params_path)
         self.repository = ArtifactRepository()
 
-        self.processed_dir = Path(self.params["data"]["processed_dir"])
-        self.checkpoint_path = Path("models/checkpoints/model.pt")
-        self.metadata_path = Path("models/checkpoints/model_metadata.json")
+    def preprocess(self) -> None:
+        """Carrega, valida, limpa e persiste os dados intermediários."""
+        raw_data = load_ratings(self.params["data"]["raw_path"])
+        clean_data = self._clean_ratings(raw_data)
 
-    def prepare(self) -> None:
-        """Prepara dados brutos e salva CSVs processados."""
-        data = load_ratings(self.params["data"]["raw_path"])
-        data = normalize_ratings(encode_ids(data))
+        interim_path = Path(self.params["data"]["interim_path"])
+        interim_path.parent.mkdir(parents=True, exist_ok=True)
 
-        metadata = self._build_model_metadata(data)
+        clean_data.to_csv(interim_path, index=False)
 
-        train, valid, test = split_data(
-            data,
-            self.params["data"]["test_size"],
-            self.params["data"]["valid_size"],
-            self.params["seed"],
-        )
+    def feature_engineering(self) -> None:
+        """Constrói features, metadados e divisões processadas."""
+        interim_path = Path(self.params["data"]["interim_path"])
 
-        self._save_splits(train, valid, test)
-        self._save_json(metadata, self.metadata_path)
-
-    def train(self) -> None:
-        """Treina modelo, salva checkpoint e registra experimento."""
-        set_seed(self.params["seed"])
-
-        train, valid, test = self._load_processed_splits()
-
-        metadata = self._load_or_create_metadata(train, valid, test)
-        model = self._create_model_from_metadata(metadata)
-
-        train_loss = self._fit_model(model, train)
-
-        self.repository.save_model(model, self.checkpoint_path)
-        self.repository.save_metrics(
-            {"train_loss": train_loss},
-            self._train_metrics_path(),
-        )
-
-        self._log_experiment(model, train, train_loss, str(self.checkpoint_path))
-
-    def evaluate(self) -> None:
-        """Avalia modelo treinado em dados de teste.
-
-        Raises:
-            FileNotFoundError: Se o checkpoint do modelo não for encontrado.
-        """
-        if not self.checkpoint_path.exists():
+        if not interim_path.exists():
             msg = (
-                "Checkpoint não encontrado em models/checkpoints/model.pt. "
-                "Execute primeiro: uv run python scripts/run_pipeline.py train"
+                f"Arquivo intermediário não encontrado: {interim_path}. "
+                "Execute primeiro o estágio preprocess."
             )
             raise FileNotFoundError(msg)
 
-        _, _, test = self._load_processed_splits()
+        clean_data = pd.read_csv(interim_path)
+        features = build_model_features(clean_data)
+        metadata = build_model_metadata(features)
 
-        metadata = self._load_model_metadata()
-        model = self._create_model_from_metadata(metadata)
+        test_size = float(self.params["data"]["test_size"])
+        valid_size = float(self.params["data"]["valid_size"])
 
-        state_dict = torch.load(self.checkpoint_path, map_location="cpu")
+        relative_valid_size = self._relative_valid_size(
+            test_size,
+            valid_size,
+        )
+
+        train, valid, test = split_data(
+            features,
+            test_size,
+            relative_valid_size,
+            int(self.params["seed"]),
+        )
+
+        self._save_splits(train, valid, test)
+        self._save_metadata(metadata)
+
+    def train(self) -> None:
+        """Treina o modelo, seleciona o melhor estado e salva artefatos."""
+        set_seed(int(self.params["seed"]))
+
+        train_data = self._load_split("train.csv")
+        valid_data = self._load_split("valid.csv")
+        metadata = self._load_metadata()
+
+        model = self._create_model(metadata)
+        metrics = self._fit_model(
+            model,
+            train_data,
+            valid_data,
+        )
+
+        self.repository.save_model(
+            model,
+            self.params["artifacts"]["model_path"],
+        )
+        self.repository.save_metrics(
+            metrics,
+            self.params["artifacts"]["train_metrics_path"],
+        )
+
+    def evaluate(self) -> None:
+        """Avalia o melhor checkpoint nos dados de teste."""
+        test_data = self._load_split("test.csv")
+        metadata = self._load_metadata()
+        model = self._create_model(metadata)
+
+        checkpoint_path = Path(self.params["artifacts"]["model_path"])
+
+        if not checkpoint_path.exists():
+            msg = (
+                f"Checkpoint não encontrado: {checkpoint_path}. "
+                "Execute primeiro o estágio train."
+            )
+            raise FileNotFoundError(msg)
+
+        state_dict = torch.load(
+            checkpoint_path,
+            map_location="cpu",
+            weights_only=True,
+        )
+
         model.load_state_dict(state_dict)
 
-        metrics = self._calculate_metrics(model, test)
+        metrics = self._calculate_metrics(
+            model,
+            test_data,
+        )
 
         self.repository.save_metrics(
             metrics,
-            self._eval_metrics_path(),
+            self.params["artifacts"]["evaluation_metrics_path"],
         )
 
-        print("Métricas de avaliação:")
-        print(metrics)
+    @staticmethod
+    def _clean_ratings(data: pd.DataFrame) -> pd.DataFrame:
+        """Remove registros inválidos e garante o domínio dos ratings.
+
+        Args:
+            data: DataFrame original com as avaliações.
+
+        Returns:
+            DataFrame limpo, ordenado e validado.
+
+        Raises:
+            ValueError: Se faltarem colunas, houver ratings inválidos ou se
+                o conjunto ficar vazio após a limpeza.
+        """
+        required_columns = [
+            "user_id",
+            "item_id",
+            "rating",
+            "timestamp",
+        ]
+
+        missing_columns = set(required_columns).difference(data.columns)
+
+        if missing_columns:
+            columns = ", ".join(sorted(missing_columns))
+            msg = f"Colunas obrigatórias ausentes: {columns}"
+            raise ValueError(msg)
+
+        clean_data = (
+            data.dropna(subset=required_columns)
+            .drop_duplicates()
+            .sort_values(
+                ["timestamp", "user_id", "item_id"],
+            )
+            .reset_index(drop=True)
+        )
+
+        invalid_ratings = ~clean_data["rating"].between(1, 5)
+
+        if invalid_ratings.any():
+            msg = "Foram encontrados ratings fora do intervalo [1, 5]."
+            raise ValueError(msg)
+
+        if clean_data.empty:
+            msg = "O dataset ficou vazio após o pré-processamento."
+            raise ValueError(msg)
+
+        return clean_data
+
+    @staticmethod
+    def _relative_valid_size(
+        test_size: float,
+        valid_size: float,
+    ) -> float:
+        """Converte validação total em proporção de treino-validação.
+
+        Args:
+            test_size: Proporção total destinada ao teste.
+            valid_size: Proporção total destinada à validação.
+
+        Returns:
+            Proporção relativa de validação após a retirada do teste.
+
+        Raises:
+            ValueError: Se as proporções forem inválidas.
+        """
+        if not 0.0 < test_size < 1.0:
+            msg = "data.test_size deve estar no intervalo (0, 1)."
+            raise ValueError(msg)
+
+        if not 0.0 < valid_size < 1.0:
+            msg = "data.valid_size deve estar no intervalo (0, 1)."
+            raise ValueError(msg)
+
+        if test_size + valid_size >= 1.0:
+            msg = "A soma de test_size e valid_size deve ser menor que 1."
+            raise ValueError(msg)
+
+        return valid_size / (1.0 - test_size)
 
     def _save_splits(
         self,
@@ -129,300 +231,262 @@ class TrainingPipeline(BasePipeline):
         valid: pd.DataFrame,
         test: pd.DataFrame,
     ) -> None:
-        """Salva divisões processadas.
+        """Salva as divisões processadas.
 
         Args:
-            train: Dados de treino.
+            train: Dados de treinamento.
             valid: Dados de validação.
             test: Dados de teste.
         """
-        self.processed_dir.mkdir(parents=True, exist_ok=True)
+        output_dir = Path(self.params["data"]["processed_dir"])
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-        train.to_csv(self.processed_dir / "train.csv", index=False)
-        valid.to_csv(self.processed_dir / "valid.csv", index=False)
-        test.to_csv(self.processed_dir / "test.csv", index=False)
+        train.to_csv(
+            output_dir / "train.csv",
+            index=False,
+        )
+        valid.to_csv(
+            output_dir / "valid.csv",
+            index=False,
+        )
+        test.to_csv(
+            output_dir / "test.csv",
+            index=False,
+        )
 
-    def _load_processed_splits(
+    def _save_metadata(
         self,
-    ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-        """Carrega treino, validação e teste.
-
-        Returns:
-            Tupla contendo os DataFrames de treino, validação e teste.
-
-        Raises:
-            FileNotFoundError: Se algum arquivo de split não for encontrado.
-        """
-        train_path = self.processed_dir / "train.csv"
-        valid_path = self.processed_dir / "valid.csv"
-        test_path = self.processed_dir / "test.csv"
-
-        missing_files = [
-            str(path)
-            for path in [train_path, valid_path, test_path]
-            if not path.exists()
-        ]
-
-        if missing_files:
-            msg = (
-                "Arquivos processados não encontrados: "
-                f"{missing_files}. "
-                "Execute primeiro: uv run python scripts/run_pipeline.py prepare"
-            )
-            raise FileNotFoundError(msg)
-
-        train = pd.read_csv(train_path)
-        valid = pd.read_csv(valid_path)
-        test = pd.read_csv(test_path)
-
-        return train, valid, test
-
-    def _build_model_metadata(self, data: pd.DataFrame) -> dict[str, Any]:
-        """Cria metadados consistentes para o modelo.
+        metadata: dict[str, int],
+    ) -> None:
+        """Persiste as dimensões globais usadas pelos embeddings.
 
         Args:
-            data: DataFrame usado para calcular usuários e itens únicos.
-
-        Returns:
-            Dicionário com configurações de arquitetura e dimensões.
+            metadata: Número global de usuários e itens.
         """
-        return {
-            "model_name": self.params["model"]["name"],
-            "num_users": int(data["user_idx"].max()) + 1,
-            "num_items": int(data["item_idx"].max()) + 1,
-            "embedding_dim": int(self.params["model"]["embedding_dim"]),
-            "hidden_dim": int(self.params["model"]["hidden_dim"]),
-            "seed": int(self.params["seed"]),
-        }
+        metadata_path = Path(self.params["data"]["metadata_path"])
+        metadata_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
-    def _load_or_create_metadata(
-        self,
-        train: pd.DataFrame,
-        valid: pd.DataFrame,
-        test: pd.DataFrame,
-    ) -> dict[str, Any]:
-        """Carrega metadados ou cria a partir de todos os splits.
-
-        Args:
-            train: Dados de treino.
-            valid: Dados de validação.
-            test: Dados de teste.
-
-        Returns:
-            Dicionário de metadados do modelo.
-        """
-        if self.metadata_path.exists():
-            return self._load_model_metadata()
-
-        full_data = pd.concat([train, valid, test], ignore_index=True)
-        metadata = self._build_model_metadata(full_data)
-        self._save_json(metadata, self.metadata_path)
-
-        return metadata
-
-    def _load_model_metadata(self) -> dict[str, Any]:
-        """Carrega metadados do modelo.
-
-        Returns:
-            Dicionário de metadados recuperados ou criados.
-        """
-        if not self.metadata_path.exists():
-            train, valid, test = self._load_processed_splits()
-            full_data = pd.concat([train, valid, test], ignore_index=True)
-            metadata = self._build_model_metadata(full_data)
-            self._save_json(metadata, self.metadata_path)
-
-            return metadata
-
-        with self.metadata_path.open("r", encoding="utf-8") as file:
-            metadata = json.load(file)
-
-        return cast(dict[str, Any], metadata)
-
-    def _save_json(self, data: dict[str, Any], path: Path) -> None:
-        """Salva dicionário em JSON.
-
-        Args:
-            data: Dicionário com os dados a serem serializados.
-            path: Caminho completo de destino do arquivo JSON.
-        """
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            json.dumps(data, indent=2, ensure_ascii=False),
+        metadata_path.write_text(
+            json.dumps(metadata, indent=2),
             encoding="utf-8",
         )
 
-    def _create_model_from_metadata(
-        self,
-        metadata: dict[str, Any],
-    ) -> BaseRecommender:
-        """Cria modelo usando os mesmos metadados do treino.
-
-        Args:
-            metadata: Dicionário contendo hiperparâmetros e dimensões.
+    def _load_metadata(self) -> dict[str, int]:
+        """Carrega e valida os metadados do modelo.
 
         Returns:
-            Instância configurada do modelo de recomendação.
+            Dicionário contendo número de usuários e itens.
+
+        Raises:
+            FileNotFoundError: Se os metadados ainda não existirem.
+        """
+        metadata_path = Path(self.params["data"]["metadata_path"])
+
+        if not metadata_path.exists():
+            msg = (
+                f"Metadados não encontrados: {metadata_path}. "
+                "Execute primeiro o estágio feature_eng."
+            )
+            raise FileNotFoundError(msg)
+
+        raw_metadata: dict[str, Any] = json.loads(
+            metadata_path.read_text(encoding="utf-8")
+        )
+
+        return {
+            "num_users": int(raw_metadata["num_users"]),
+            "num_items": int(raw_metadata["num_items"]),
+        }
+
+    def _load_split(
+        self,
+        filename: str,
+    ) -> pd.DataFrame:
+        """Carrega uma divisão processada.
+
+        Args:
+            filename: Nome do arquivo da divisão.
+
+        Returns:
+            DataFrame da divisão solicitada.
+
+        Raises:
+            FileNotFoundError: Se o arquivo não existir.
+        """
+        split_path = Path(self.params["data"]["processed_dir"]) / filename
+
+        if not split_path.exists():
+            msg = (
+                f"Divisão processada não encontrada: {split_path}. "
+                "Execute primeiro o estágio feature_eng."
+            )
+            raise FileNotFoundError(msg)
+
+        return pd.read_csv(split_path)
+
+    def _create_model(
+        self,
+        metadata: dict[str, int],
+    ) -> BaseRecommender:
+        """Cria o modelo por meio do Factory Pattern.
+
+        Args:
+            metadata: Dimensões globais do conjunto de dados.
+
+        Returns:
+            Modelo de recomendação configurado.
         """
         return create_model(
-            model_name=str(metadata["model_name"]),
-            num_users=int(metadata["num_users"]),
-            num_items=int(metadata["num_items"]),
-            embedding_dim=int(metadata["embedding_dim"]),
-            hidden_dim=int(metadata["hidden_dim"]),
+            self.params["model"]["name"],
+            metadata["num_users"],
+            metadata["num_items"],
+            int(self.params["model"]["embedding_dim"]),
+            int(self.params["model"]["hidden_dim"]),
         )
 
-    def _fit_model(self, model: BaseRecommender, train: pd.DataFrame) -> float:
-        """Executa loop de treino.
-
-        Args:
-            model: Modelo a ser treinado.
-            train: DataFrame contendo os dados de treino.
-
-        Returns:
-            Valor final da perda da última época.
-        """
-        data_loader = self._create_dataloader(train, shuffle=True)
-        optimizer = create_optimizer(
-            model,
-            self.params["training"]["learning_rate"],
-        )
-        trainer = Trainer(model, get_loss_function(), optimizer)
-
-        loss = 0.0
-
-        for epoch in range(self.params["training"]["epochs"]):
-            loss = trainer.train_epoch(data_loader)
-            print(f"Epoch {epoch + 1} - loss: {loss:.6f}")
-
-        return loss
-
-    def _log_experiment(
+    def _fit_model(
         self,
         model: BaseRecommender,
-        train: pd.DataFrame,
-        train_loss: float,
-        model_path: str,
-    ) -> None:
-        """Registra parâmetros, métricas e artefatos no MLflow.
-
-        O registro no MLflow é tratado como etapa complementar. Caso o servidor
-        MLflow esteja indisponível, o checkpoint salvo localmente continua válido
-        e o treino não é interrompido por falha de tracking.
+        train_data: pd.DataFrame,
+        valid_data: pd.DataFrame,
+    ) -> dict[str, float]:
+        """Treina e restaura o estado com menor RMSE de validação.
 
         Args:
-            model: Modelo treinado.
-            train: Dados de treino usados para criar o exemplo de entrada.
-            train_loss: Valor final de perda obtido no treinamento.
-            model_path: Caminho local onde o checkpoint foi salvo.
-        """
-        input_example = self._create_mlflow_input_example(train)
-
-        try:
-            tracker = MLflowTracker("movielens-recommender")
-
-            with mlflow.start_run():
-                tracker.log_params(self.params["model"] | self.params["training"])
-                tracker.log_metrics({"train_loss": train_loss})
-
-                mlflow.log_artifact(
-                    model_path,
-                    artifact_path="checkpoints",
-                )
-                mlflow.log_artifact(
-                    str(self.metadata_path),
-                    artifact_path="checkpoints",
-                )
-
-                try:
-                    tracker.log_model(
-                        model=model,
-                        artifact_path="model",
-                        input_example=input_example,
-                    )
-                    mlflow.set_tag("model_logging_status", "success")
-                except Exception as error:  # noqa: BLE001
-                    mlflow.set_tag("model_logging_status", "failed")
-                    mlflow.set_tag("model_logging_error", str(error))
-                    print(
-                        "Aviso: checkpoint salvo, mas o registro do modelo "
-                        f"no MLflow falhou: {error}"
-                    )
-
-        except Exception as error:  # noqa: BLE001
-            print(f"Aviso: checkpoint salvo, mas o registro no MLflow falhou: {error}")
-
-    def _create_mlflow_input_example(
-        self,
-        train: pd.DataFrame,
-    ) -> MLflowInputExample:
-        """Cria exemplo de entrada aceito pelo MLflow.
-
-        O modelo original trabalha com dois tensores:
-
-            model(user_ids, item_ids)
-
-        Para o MLflow, criamos uma única matriz NumPy:
-
-            [[user_id, item_id],
-             [user_id, item_id],
-             ...]
-
-        Args:
-            train: DataFrame de treino usado para montar o exemplo.
+            model: Modelo que será treinado.
+            train_data: Dados de treinamento.
+            valid_data: Dados de validação.
 
         Returns:
-            Matriz NumPy com shape ``(batch_size, 2)``.
+            Melhores métricas obtidas durante o treinamento.
+
+        Raises:
+            RuntimeError: Se nenhum estado válido for produzido.
         """
-        data_loader = self._create_dataloader(train, shuffle=False)
-
-        try:
-            users, items, _ = next(iter(data_loader))
-        except StopIteration as error:
-            msg = "Não é possível criar input_example com treino vazio."
-            raise ValueError(msg) from error
-
-        users_array = users[:5].detach().cpu().long().reshape(-1).numpy()
-        items_array = items[:5].detach().cpu().long().reshape(-1).numpy()
-
-        if users_array.shape != items_array.shape:
-            msg = (
-                "users e items devem ter o mesmo tamanho para o input_example. "
-                f"Recebido: {users_array.shape} e {items_array.shape}."
-            )
-            raise ValueError(msg)
-
-        if users_array.size == 0:
-            msg = "input_example não pode ser vazio."
-            raise ValueError(msg)
-
-        input_example = np.column_stack((users_array, items_array)).astype(
-            np.int64,
-            copy=False,
+        train_loader = self._create_dataloader(
+            train_data,
+            shuffle=True,
+        )
+        valid_loader = self._create_dataloader(
+            valid_data,
+            shuffle=False,
         )
 
-        return input_example
+        optimizer = create_optimizer(
+            model,
+            float(self.params["training"]["learning_rate"]),
+        )
+
+        trainer = Trainer(
+            model,
+            get_loss_function(),
+            optimizer,
+        )
+        evaluator = Evaluator(model)
+
+        tracker = MLflowTracker(self.params["tracking"]["experiment_name"])
+
+        best_valid_rmse = float("inf")
+        best_train_loss = float("inf")
+        best_epoch = 0
+        best_state: dict[str, torch.Tensor] | None = None
+
+        epochs = int(self.params["training"]["epochs"])
+
+        with mlflow.start_run():
+            tracker.log_params(self.params["model"] | self.params["training"])
+
+            for epoch in range(1, epochs + 1):
+                train_loss = trainer.train_epoch(train_loader)
+
+                valid_rmse = evaluator.evaluate(
+                    valid_loader,
+                    RMSEStrategy(),
+                )
+
+                mlflow.log_metrics(
+                    {
+                        "train_loss": train_loss,
+                        "validation_rmse": valid_rmse,
+                    },
+                    step=epoch,
+                )
+
+                if valid_rmse < best_valid_rmse:
+                    best_valid_rmse = valid_rmse
+                    best_train_loss = train_loss
+                    best_epoch = epoch
+                    best_state = copy.deepcopy(model.state_dict())
+
+            if best_state is None:
+                msg = "O treinamento não produziu um estado de modelo válido."
+                raise RuntimeError(msg)
+
+            model.load_state_dict(best_state)
+
+            tracker.log_metrics(
+                {
+                    "best_train_loss": best_train_loss,
+                    "best_validation_rmse": best_valid_rmse,
+                    "best_epoch": float(best_epoch),
+                }
+            )
+
+            input_example = (
+                torch.as_tensor(
+                    train_data["user_idx"].head(5).to_numpy(),
+                    dtype=torch.long,
+                ),
+                torch.as_tensor(
+                    train_data["item_idx"].head(5).to_numpy(),
+                    dtype=torch.long,
+                ),
+            )
+
+            tracker.log_model(
+                model=model,
+                artifact_path="model",
+                input_example=input_example,
+            )
+
+        return {
+            "best_train_loss": best_train_loss,
+            "best_validation_rmse": best_valid_rmse,
+            "best_epoch": float(best_epoch),
+        }
 
     def _calculate_metrics(
         self,
         model: BaseRecommender,
-        test: pd.DataFrame,
+        test_data: pd.DataFrame,
     ) -> dict[str, float]:
-        """Calcula métricas de avaliação.
+        """Calcula métricas finais no conjunto de teste.
 
         Args:
-            model: Modelo a ser avaliado.
-            test: DataFrame contendo os dados de teste.
+            model: Modelo treinado.
+            test_data: Dados de teste.
 
         Returns:
-            Dicionário associando o nome da métrica ao seu valor.
+            RMSE e MAE calculados no conjunto de teste.
         """
-        data_loader = self._create_dataloader(test, shuffle=False)
+        dataloader = self._create_dataloader(
+            test_data,
+            shuffle=False,
+        )
         evaluator = Evaluator(model)
 
         return {
-            "rmse": evaluator.evaluate(data_loader, RMSEStrategy()),
-            "mae": evaluator.evaluate(data_loader, MAEStrategy()),
+            "rmse": evaluator.evaluate(
+                dataloader,
+                RMSEStrategy(),
+            ),
+            "mae": evaluator.evaluate(
+                dataloader,
+                MAEStrategy(),
+            ),
         }
 
     def _create_dataloader(
@@ -430,35 +494,19 @@ class TrainingPipeline(BasePipeline):
         data: pd.DataFrame,
         shuffle: bool,
     ) -> DataLoader[Batch]:
-        """Cria DataLoader PyTorch.
+        """Cria um DataLoader do PyTorch.
 
         Args:
-            data: DataFrame usado para gerar o Dataset.
-            shuffle: Se verdadeiro, embaralha as amostras.
+            data: DataFrame usado para criar o dataset.
+            shuffle: Se verdadeiro, embaralha os exemplos.
 
         Returns:
-            DataLoader preparado para iteração em lotes.
+            DataLoader configurado para processamento em lotes.
         """
         dataset = MovieLensDataset(data)
 
         return DataLoader(
             dataset,
-            batch_size=self.params["training"]["batch_size"],
+            batch_size=int(self.params["training"]["batch_size"]),
             shuffle=shuffle,
         )
-
-    def _train_metrics_path(self) -> str:
-        """Retorna caminho de métricas de treino.
-
-        Returns:
-            Caminho relativo para o JSON de métricas de treino.
-        """
-        return "reports/metrics/train_metrics.json"
-
-    def _eval_metrics_path(self) -> str:
-        """Retorna caminho de métricas de avaliação.
-
-        Returns:
-            Caminho relativo para o JSON de métricas de teste.
-        """
-        return "reports/metrics/evaluation_metrics.json"
