@@ -4,91 +4,57 @@
 
 __pycache__/
 *.py[cod]
-*$py.class
 *.pyo
 *.pyd
-*.so
+*$py.class
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.pyre/
+.hypothesis/
+
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
 
 build/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+.eggs/
 
 # ============================================================
-# Ambientes virtuais
+# Ambiente Python / uv
 # ============================================================
 
 .venv/
 venv/
 env/
-ENV/
-venv.bak/
-env.bak/
 
 # ============================================================
-# Variáveis de ambiente e segredos
+# Variáveis de ambiente e credenciais
 # ============================================================
 
 .env
 .env.*
 !.env.example
 
-.secrets/
-*.pem
-*.key
-
-# ============================================================
-# Testes, cobertura e qualidade
-# ============================================================
-
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.hypothesis/
-.tox/
-.nox/
-.coverage
-.coverage.*
-coverage.xml
-coverage.json
-htmlcov/
-.cache/
-.pytype/
-.pyre/
-.pre-commit-cache/
-
 # ============================================================
 # Jupyter
 # ============================================================
 
 .ipynb_checkpoints/
-*/.ipynb_checkpoints/
-*.nbconvert.ipynb
 
 # ============================================================
 # MLflow
 # ============================================================
 
 /mlruns/
+/mlruns-local/
 /mlartifacts/
 /mlflow.db
-/mlflow.sqlite
-/mlflow.sqlite3
-*.db-journal
-*.db-shm
-*.db-wal
 
 # ============================================================
 # DVC
@@ -96,103 +62,71 @@ htmlcov/
 
 /.dvc/cache/
 /.dvc/tmp/
-/.dvc/.cache/
 /.dvc/config.local
+/dvc-storage/
 
 # ============================================================
-# Dados
+# Dados gerados ou pesados
 # ============================================================
 
 /data/raw/*
-!/data/raw/.gitkeep
-
 /data/interim/*
-!/data/interim/.gitkeep
-
 /data/processed/*
-!/data/processed/.gitkeep
-
 /data/features/*
+
+!/data/raw/.gitignore
+!/data/raw/*.dvc
+
+!/data/raw/.gitkeep
+!/data/interim/.gitkeep
+!/data/processed/.gitkeep
 !/data/features/.gitkeep
 
-/data/external/*
-!/data/external/.gitkeep
-
-*.csv
-*.tsv
-*.parquet
-*.feather
-*.h5
-*.hdf5
-*.npy
-*.npz
-
-!tests/fixtures/**/*.csv
-!tests/fixtures/**/*.tsv
-!tests/fixtures/**/*.json
-
 # ============================================================
-# Modelos
+# Modelos e artefatos gerados
 # ============================================================
 
 /models/checkpoints/*
-!/models/checkpoints/.gitkeep
-
 /models/registry/*
-!/models/registry/.gitkeep
-
 /models/exported/*
+
+!/models/checkpoints/.gitkeep
+!/models/registry/.gitkeep
 !/models/exported/.gitkeep
 
-*.pt
-*.pth
-*.ckpt
-*.onnx
-*.joblib
-*.pickle
-*.pkl
-*.safetensors
-
 # ============================================================
-# Relatórios
+# Relatórios gerados
 # ============================================================
 
 /reports/figures/*
-!/reports/figures/.gitkeep
+/reports/predictions/*
 
-/reports/metrics/*
+!/reports/figures/.gitkeep
+!/reports/predictions/.gitkeep
 !/reports/metrics/.gitkeep
 
-/reports/predictions/*
-!/reports/predictions/.gitkeep
-
 # ============================================================
-# Logs e temporários
+# Logs e arquivos temporários
 # ============================================================
 
 *.log
-logs/
-tmp/
-temp/
-.tmp/
-.temp/
 *.tmp
 *.temp
 *.bak
-*.old
-
-# ============================================================
-# IDEs
-# ============================================================
-
-.vscode/
-.idea/
-*.code-workspace
-*.sublime-project
-*.sublime-workspace
 *.swp
 *.swo
-*~
+
+.cache/
+tmp/
+temp/
+
+# ============================================================
+# IDEs e editores
+# ============================================================
+
+.idea/
+.vscode/
+*.code-workspace
 
 # ============================================================
 # Sistema operacional
@@ -202,19 +136,10 @@ temp/
 .AppleDouble
 .LSOverride
 Thumbs.db
-Thumbs.db:encryptable
-ehthumbs.db
 Desktop.ini
-$RECYCLE.BIN/
 
 # ============================================================
-# Docker
-# ============================================================
-
-docker-compose.override.yml
-
-# ============================================================
-# Compactados
+# Arquivos compactados
 # ============================================================
 
 *.zip
@@ -225,19 +150,8 @@ docker-compose.override.yml
 *.7z
 
 # ============================================================
-# Projeto MovieLens
+# Profiling
 # ============================================================
-
-/data/raw/ml-100k/
-/data/raw/ml-1m/
-/data/raw/ml-10m/
-/data/raw/ml-20m/
-/data/raw/ml-25m/
-
-/checkpoints/
-/artifacts/
-/outputs/
-/runs/
 
 *.prof
 *.lprof

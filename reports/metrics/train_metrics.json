@@ -1,0 +1,5 @@
+{
+  "best_train_loss": 0.052328652423554965,
+  "best_validation_rmse": 0.24591830333538767,
+  "best_epoch": 5.0
+}
