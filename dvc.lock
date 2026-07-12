@@ -127,7 +127,7 @@ stages:
       nfiles: 10
     - path: src/recommender/pipeline
       hash: md5
-      md5: a0431c99ad54f99ddf9b99e7528f18b3.dir
+      md5: 15d032a605ffdf92192ca70dcc287311.dir
       size: 36471
       nfiles: 7
     - path: src/recommender/repositories/artifact_repository.py
@@ -211,7 +211,7 @@ stages:
       nfiles: 10
     - path: src/recommender/pipeline
       hash: md5
-      md5: a0431c99ad54f99ddf9b99e7528f18b3.dir
+      md5: 15d032a605ffdf92192ca70dcc287311.dir
       size: 36471
       nfiles: 7
     - path: src/recommender/repositories/artifact_repository.py
