@@ -61,7 +61,7 @@ services:
       TORCHINDUCTOR_CACHE_DIR: /tmp/torchinductor
       XDG_CACHE_HOME: /tmp/.cache
 
-      # Desativa telemetria dentro do contêiner.
+      # Desativa a telemetria dentro do contêiner.
       DVC_NO_ANALYTICS: "true"
 
     depends_on:
@@ -94,9 +94,6 @@ services:
 
         echo "Configuração DVC utilizada:"
         cat /app/.dvc/config.local
-
-        echo "Recuperando o dataset bruto com DVC..."
-        uv run dvc pull data/raw/ml-100k.dvc
 
         echo "Executando o pipeline reproduzível..."
         uv run dvc repro
