@@ -95,8 +95,8 @@ Essa decisão é documentada explicitamente no
 
 ## Quick start para usuário externo
 
-Esta é a sequência recomendada para clonar, instalar, testar e reproduzir o
-projeto em outra máquina Linux.
+Esta é a sequência **recomendada** para clonar, instalar, testar e reproduzir o
+projeto em outra máquina **Linux (Ubuntu 24.04 e 26.04)**.
 
 ### 1. Clonar o repositório
 
