@@ -2,6 +2,7 @@
 
 import copy
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +15,7 @@ from recommender.data.dataset import MovieLensDataset
 from recommender.data.movielens_loader import load_ratings
 from recommender.data.split import split_data
 from recommender.evaluation.evaluator import Evaluator
-from recommender.evaluation.metric_strategy import MAEStrategy, RMSEStrategy
+from recommender.evaluation.metric_strategy import RMSEStrategy
 from recommender.features.build_features import (
     build_model_features,
     build_model_metadata,
@@ -31,6 +32,16 @@ from recommender.utils.config import load_yaml
 from recommender.utils.seed import set_seed
 
 Batch = tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+
+MODEL_ARTIFACT_PATH = "model"
+
+
+@dataclass(frozen=True)
+class TrainingResult:
+    """Resultado produzido pelo treinamento do modelo."""
+
+    metrics: dict[str, float]
+    run_metadata: dict[str, str]
 
 
 class TrainingPipeline(BasePipeline):
@@ -89,7 +100,7 @@ class TrainingPipeline(BasePipeline):
         self._save_metadata(metadata)
 
     def train(self) -> None:
-        """Treina o modelo, seleciona o melhor estado e salva artefatos."""
+        """Treina o modelo e salva checkpoint, métricas e run do MLflow."""
         set_seed(int(self.params["seed"]))
 
         train_data = self._load_split("train.csv")
@@ -97,19 +108,28 @@ class TrainingPipeline(BasePipeline):
         metadata = self._load_metadata()
 
         model = self._create_model(metadata)
-        metrics = self._fit_model(
+
+        result = self._fit_model(
             model,
             train_data,
             valid_data,
         )
 
+        artifacts = self.params["artifacts"]
+
         self.repository.save_model(
             model,
-            self.params["artifacts"]["model_path"],
+            artifacts["model_path"],
         )
+
         self.repository.save_metrics(
-            metrics,
-            self.params["artifacts"]["train_metrics_path"],
+            result.metrics,
+            artifacts["train_metrics_path"],
+        )
+
+        self.repository.save_json(
+            result.run_metadata,
+            artifacts["training_run_path"],
         )
 
     def evaluate(self) -> None:
@@ -352,7 +372,7 @@ class TrainingPipeline(BasePipeline):
         model: BaseRecommender,
         train_data: pd.DataFrame,
         valid_data: pd.DataFrame,
-    ) -> dict[str, float]:
+    ) -> TrainingResult:
         """Treina e restaura o estado com menor RMSE de validação.
 
         Args:
@@ -361,7 +381,7 @@ class TrainingPipeline(BasePipeline):
             valid_data: Dados de validação.
 
         Returns:
-            Melhores métricas obtidas durante o treinamento.
+            Métricas do treinamento e metadados da execução do MLflow.
 
         Raises:
             RuntimeError: Se nenhum estado válido for produzido.
@@ -385,6 +405,7 @@ class TrainingPipeline(BasePipeline):
             get_loss_function(),
             optimizer,
         )
+
         evaluator = Evaluator(model)
 
         tracker = MLflowTracker(self.params["tracking"]["experiment_name"])
@@ -396,7 +417,7 @@ class TrainingPipeline(BasePipeline):
 
         epochs = int(self.params["training"]["epochs"])
 
-        with mlflow.start_run():
+        with mlflow.start_run() as run:
             tracker.log_params(self.params["model"] | self.params["training"])
 
             for epoch in range(1, epochs + 1):
@@ -427,13 +448,13 @@ class TrainingPipeline(BasePipeline):
 
             model.load_state_dict(best_state)
 
-            tracker.log_metrics(
-                {
-                    "best_train_loss": best_train_loss,
-                    "best_validation_rmse": best_valid_rmse,
-                    "best_epoch": float(best_epoch),
-                }
-            )
+            training_metrics = {
+                "best_train_loss": best_train_loss,
+                "best_validation_rmse": best_valid_rmse,
+                "best_epoch": float(best_epoch),
+            }
+
+            tracker.log_metrics(training_metrics)
 
             input_example = (
                 torch.as_tensor(
@@ -448,15 +469,26 @@ class TrainingPipeline(BasePipeline):
 
             tracker.log_model(
                 model=model,
-                artifact_path="model",
+                artifact_path=MODEL_ARTIFACT_PATH,
                 input_example=input_example,
             )
 
-        return {
-            "best_train_loss": best_train_loss,
-            "best_validation_rmse": best_valid_rmse,
-            "best_epoch": float(best_epoch),
-        }
+            run_id = run.info.run_id
+
+            run_metadata = {
+                "run_id": run_id,
+                "experiment_id": run.info.experiment_id,
+                "artifact_path": MODEL_ARTIFACT_PATH,
+                "model_uri": (f"runs:/{run_id}/{MODEL_ARTIFACT_PATH}"),
+                "tracking_uri": mlflow.get_tracking_uri(),
+                "model_name": str(self.params["model"]["name"]),
+                "model_flavor": "pytorch",
+            }
+
+        return TrainingResult(
+            metrics=training_metrics,
+            run_metadata=run_metadata,
+        )
 
     def _calculate_metrics(
         self,
@@ -470,24 +502,21 @@ class TrainingPipeline(BasePipeline):
             test_data: Dados de teste.
 
         Returns:
-            RMSE e MAE calculados no conjunto de teste.
+            Métricas calculadas na escala normalizada e na escala original.
         """
         dataloader = self._create_dataloader(
             test_data,
             shuffle=False,
         )
+
         evaluator = Evaluator(model)
 
-        return {
-            "rmse": evaluator.evaluate(
-                dataloader,
-                RMSEStrategy(),
-            ),
-            "mae": evaluator.evaluate(
-                dataloader,
-                MAEStrategy(),
-            ),
-        }
+        return evaluator.evaluate_all(
+            data_loader=dataloader,
+            min_rating=1.0,
+            max_rating=5.0,
+            include_rating_scale=True,
+        )
 
     def _create_dataloader(
         self,

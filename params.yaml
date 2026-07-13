@@ -25,6 +25,26 @@ artifacts:
   model_path: models/checkpoints/model.pt
   train_metrics_path: reports/metrics/train_metrics.json
   evaluation_metrics_path: reports/metrics/evaluation_metrics.json
+  baseline_metrics_path: reports/metrics/baseline_metrics.json
+  model_comparison_path: reports/metrics/model_comparison.json
+  training_run_path: models/registry/training_run.json
 
 evaluation:
   top_k: 10
+  metrics:
+    - rmse
+    - mae
+    - mse
+    - r2
+    - median_absolute_error
+
+baselines:
+  models:
+    - dummy_mean
+    - dummy_median
+    - ridge_one_hot
+  ridge_alpha: 1.0
+
+quality_gate:
+  selection_metric: rmse
+  maximum_rmse: 0.26

@@ -21,8 +21,8 @@ stages:
       size: 773
     - path: src/recommender/pipeline/training_pipeline.py
       hash: md5
-      md5: ffead9c70179b5901dd654f2a6245461
-      size: 15242
+      md5: b86c785f278b5ca4332d348773fe339e
+      size: 16003
     - path: src/recommender/utils/config.py
       hash: md5
       md5: 505ad66378e57f36caa6c28b39807af8
@@ -61,8 +61,8 @@ stages:
       size: 773
     - path: src/recommender/pipeline/training_pipeline.py
       hash: md5
-      md5: ffead9c70179b5901dd654f2a6245461
-      size: 15242
+      md5: b86c785f278b5ca4332d348773fe339e
+      size: 16003
     - path: src/recommender/utils/config.py
       hash: md5
       md5: 505ad66378e57f36caa6c28b39807af8
@@ -117,9 +117,9 @@ stages:
       size: 1783
     - path: src/recommender/evaluation
       hash: md5
-      md5: 04e1afd959cec262b2819d6c1d840f5f.dir
-      size: 11604
-      nfiles: 8
+      md5: 1aa70029d1bf5dca76a1c12a58ed48cd.dir
+      size: 67379
+      nfiles: 12
     - path: src/recommender/models
       hash: md5
       md5: 8caaa27e823551084a0def03c851de0b.dir
@@ -127,13 +127,13 @@ stages:
       nfiles: 10
     - path: src/recommender/pipeline
       hash: md5
-      md5: 15d032a605ffdf92192ca70dcc287311.dir
-      size: 36471
+      md5: b5502da79d2d20ac2c9312a2e4ff254d.dir
+      size: 38389
       nfiles: 7
     - path: src/recommender/repositories/artifact_repository.py
       hash: md5
-      md5: ae1858f05a64335b1238148913784b2a
-      size: 722
+      md5: e35b53e057140a47588be9419c0d43e0
+      size: 1535
     - path: src/recommender/tracking/mlflow_tracker.py
       hash: md5
       md5: cfb3309034c6a33e98badabb1343be51
@@ -155,6 +155,7 @@ stages:
       params.yaml:
         artifacts.model_path: models/checkpoints/model.pt
         artifacts.train_metrics_path: reports/metrics/train_metrics.json
+        artifacts.training_run_path: models/registry/training_run.json
         data.metadata_path: data/processed/metadata.json
         data.processed_dir: data/processed
         model:
@@ -172,10 +173,14 @@ stages:
       hash: md5
       md5: 12fffb791640bf5a9d083dc1d33ba60c
       size: 741373
+    - path: models/registry/training_run.json
+      hash: md5
+      md5: e74499b79ec5999c84b5045df055fa99
+      size: 261
     - path: reports/metrics/train_metrics.json
       hash: md5
-      md5: 82baa289f8ada05e277fc778ef79eca7
-      size: 113
+      md5: 1a238e2da87a744a957b044cf6d7a6bb
+      size: 114
   evaluate:
     cmd: uv run python scripts/run_pipeline.py evaluate
     deps:
@@ -201,9 +206,9 @@ stages:
       size: 1783
     - path: src/recommender/evaluation
       hash: md5
-      md5: 04e1afd959cec262b2819d6c1d840f5f.dir
-      size: 11604
-      nfiles: 8
+      md5: 1aa70029d1bf5dca76a1c12a58ed48cd.dir
+      size: 67379
+      nfiles: 12
     - path: src/recommender/models
       hash: md5
       md5: 8caaa27e823551084a0def03c851de0b.dir
@@ -211,20 +216,20 @@ stages:
       nfiles: 10
     - path: src/recommender/pipeline
       hash: md5
-      md5: 15d032a605ffdf92192ca70dcc287311.dir
-      size: 36471
+      md5: b5502da79d2d20ac2c9312a2e4ff254d.dir
+      size: 38389
       nfiles: 7
     - path: src/recommender/repositories/artifact_repository.py
       hash: md5
-      md5: ae1858f05a64335b1238148913784b2a
-      size: 722
+      md5: e35b53e057140a47588be9419c0d43e0
+      size: 1535
     - path: src/recommender/utils/config.py
       hash: md5
       md5: 505ad66378e57f36caa6c28b39807af8
       size: 430
     params:
       params.yaml:
-        artifacts.evaluation_metrics_path: 
+        artifacts.evaluation_metrics_path:
           reports/metrics/evaluation_metrics.json
         artifacts.model_path: models/checkpoints/model.pt
         data.metadata_path: data/processed/metadata.json
@@ -237,8 +242,8 @@ stages:
     outs:
     - path: reports/metrics/evaluation_metrics.json
       hash: md5
-      md5: 2599982df365da66d8b3f416cb05a9ae
-      size: 63
+      md5: fa23536fa7a96fb4d886ed9f604225a4
+      size: 256
   download:
     cmd: uv run python scripts/download_data.py
     deps:
@@ -252,3 +257,81 @@ stages:
       md5: 33e3b98f41ab1289116f74de90b95a24.dir
       size: 16100896
       nfiles: 23
+  baseline:
+    cmd: uv run python scripts/run_baselines.py
+    deps:
+    - path: data/processed/test.csv
+      hash: md5
+      md5: fd48ebcfbffbef114ddf53956120098a
+      size: 680774
+    - path: data/processed/train.csv
+      hash: md5
+      md5: d9ce63a8d0b1a25c1303174b85100785
+      size: 2382063
+    - path: scripts/run_baselines.py
+      hash: md5
+      md5: f171508fe6f5ef133876534ca709fbfe
+      size: 5714
+    - path: src/recommender/evaluation/baselines.py
+      hash: md5
+      md5: 0d39e855d21dd34f3d97ea1e04a49993
+      size: 6155
+    - path: src/recommender/evaluation/metrics.py
+      hash: md5
+      md5: 182dd634925993defcd04ea974cf1de1
+      size: 6289
+    - path: src/recommender/repositories/artifact_repository.py
+      hash: md5
+      md5: e35b53e057140a47588be9419c0d43e0
+      size: 1535
+    - path: src/recommender/utils/paths.py
+      hash: md5
+      md5: d5a7f3b590b1d736319776b2136f3f50
+      size: 208
+    params:
+      params.yaml:
+        artifacts.baseline_metrics_path: reports/metrics/baseline_metrics.json
+        baselines:
+          models:
+          - dummy_mean
+          - dummy_median
+          - ridge_one_hot
+          ridge_alpha: 1.0
+        data.processed_dir: data/processed
+    outs:
+    - path: reports/metrics/baseline_metrics.json
+      hash: md5
+      md5: 3e33daacbeaefa9184bd22e2f5415dc1
+      size: 830
+  compare:
+    cmd: uv run python scripts/compare_models.py
+    deps:
+    - path: reports/metrics/baseline_metrics.json
+      hash: md5
+      md5: 3e33daacbeaefa9184bd22e2f5415dc1
+      size: 830
+    - path: reports/metrics/evaluation_metrics.json
+      hash: md5
+      md5: fa23536fa7a96fb4d886ed9f604225a4
+      size: 256
+    - path: scripts/compare_models.py
+      hash: md5
+      md5: 929340c081f8e89d92b35f1ba32a9178
+      size: 6088
+    - path: src/recommender/evaluation/comparison.py
+      hash: md5
+      md5: 19b14934b6c8bc96e4c25bc29fbab829
+      size: 10870
+    params:
+      params.yaml:
+        artifacts.baseline_metrics_path: reports/metrics/baseline_metrics.json
+        artifacts.evaluation_metrics_path:
+          reports/metrics/evaluation_metrics.json
+        artifacts.model_comparison_path: reports/metrics/model_comparison.json
+        model.name: mlp
+        quality_gate.selection_metric: rmse
+    outs:
+    - path: reports/metrics/model_comparison.json
+      hash: md5
+      md5: ee1c04a603b2983413c2a104a4a616d3
+      size: 1850
