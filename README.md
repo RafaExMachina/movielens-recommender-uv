@@ -53,7 +53,7 @@ Construir um pipeline profissional e reproduzível de recomendação de filmes, 
 - testes, lint, type checking, pre-commit e CI.
 
 ---
-git
+
 ## 🎥 Vídeo de Apresentação
 
 A apresentação do trabalho foi realizada utilizando o **método STAR**  
