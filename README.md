@@ -52,6 +52,17 @@ Construir um pipeline profissional e reproduzível de recomendação de filmes, 
 - Dockerfile multi-stage e Docker Compose;
 - testes, lint, type checking, pre-commit e CI.
 
+---
+
+## 🎥 Vídeo de Apresentação
+
+A apresentação do trabalho foi realizada utilizando o **método STAR**  
+(**Situação, Tarefa, Ação e Resultado**), com o objetivo de estruturar a explicação do projeto de forma clara, objetiva e orientada a resultados.
+
+🔗 Assista ao vídeo da apresentação: [Churn Prediction — Apresentação do Trabalho](https://youtu.be/InhwU5HmnLM)
+
+---
+
 ## Resultado principal
 
 O modelo neural obteve as seguintes métricas no conjunto de teste:
