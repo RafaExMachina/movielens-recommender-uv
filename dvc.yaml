@@ -70,8 +70,11 @@ stages:
       - data.metadata_path
       - artifacts.model_path
       - artifacts.train_metrics_path
+      - artifacts.training_run_path
     outs:
       - models/checkpoints/model.pt
+      - models/registry/training_run.json:
+          cache: false
     metrics:
       - reports/metrics/train_metrics.json:
           cache: false
@@ -100,3 +103,106 @@ stages:
       - reports/metrics/evaluation_metrics.json:
           cache: false
 
+  baseline:
+    cmd: uv run python scripts/run_baselines.py
+    deps:
+      - data/processed/train.csv
+      - data/processed/test.csv
+      - scripts/run_baselines.py
+      - src/recommender/evaluation/baselines.py
+      - src/recommender/evaluation/metrics.py
+      - src/recommender/repositories/artifact_repository.py
+      - src/recommender/utils/paths.py
+    params:
+      - data.processed_dir
+      - artifacts.baseline_metrics_path
+      - baselines
+    metrics:
+      - reports/metrics/baseline_metrics.json:
+          cache: false
+
+  compare:
+    cmd: uv run python scripts/compare_models.py
+    deps:
+      - reports/metrics/evaluation_metrics.json
+      - reports/metrics/baseline_metrics.json
+      - scripts/compare_models.py
+      - src/recommender/evaluation/comparison.py
+    params:
+      - model.name
+      - artifacts.evaluation_metrics_path
+      - artifacts.baseline_metrics_path
+      - artifacts.model_comparison_path
+      - quality_gate.selection_metric
+    metrics:
+      - reports/metrics/model_comparison.json:
+          cache: false
+
+  register:
+    cmd: uv run python scripts/register_model.py
+    deps:
+      - models/registry/training_run.json
+      - reports/metrics/evaluation_metrics.json
+      - reports/metrics/model_comparison.json
+      - scripts/register_model.py
+      - src/recommender/tracking/model_registry.py
+      - src/recommender/repositories/artifact_repository.py
+      - src/recommender/utils/config.py
+      - src/recommender/utils/settings.py
+    params:
+      - registry
+      - quality_gate.maximum_rmse
+      - artifacts.training_run_path
+      - artifacts.evaluation_metrics_path
+      - artifacts.model_comparison_path
+      - artifacts.registered_model_path
+    outs:
+      - models/registry/registered_model.json:
+          cache: false
+
+  promote_staging:
+    cmd: uv run python scripts/promote_model.py staging
+    deps:
+      - models/registry/registered_model.json
+      - reports/metrics/evaluation_metrics.json
+      - reports/metrics/model_comparison.json
+      - scripts/promote_model.py
+      - src/recommender/tracking/model_promotion.py
+      - src/recommender/repositories/artifact_repository.py
+      - src/recommender/utils/config.py
+      - src/recommender/utils/settings.py
+    params:
+      - model.name
+      - promotion
+      - quality_gate.maximum_rmse
+      - artifacts.registered_model_path
+      - artifacts.evaluation_metrics_path
+      - artifacts.model_comparison_path
+      - artifacts.staging_promotion_path
+    outs:
+      - models/registry/staging_promotion.json:
+          cache: false
+
+  promote_production:
+    cmd: uv run python scripts/promote_model.py production
+    deps:
+      - models/registry/registered_model.json
+      - models/registry/staging_promotion.json
+      - reports/metrics/evaluation_metrics.json
+      - reports/metrics/model_comparison.json
+      - scripts/promote_model.py
+      - src/recommender/tracking/model_promotion.py
+      - src/recommender/repositories/artifact_repository.py
+      - src/recommender/utils/config.py
+      - src/recommender/utils/settings.py
+    params:
+      - model.name
+      - promotion
+      - quality_gate.maximum_rmse
+      - artifacts.registered_model_path
+      - artifacts.evaluation_metrics_path
+      - artifacts.model_comparison_path
+      - artifacts.production_promotion_path
+    outs:
+      - models/registry/production_promotion.json:
+          cache: false

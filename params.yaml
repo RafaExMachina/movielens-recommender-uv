@@ -25,6 +25,58 @@ artifacts:
   model_path: models/checkpoints/model.pt
   train_metrics_path: reports/metrics/train_metrics.json
   evaluation_metrics_path: reports/metrics/evaluation_metrics.json
+  baseline_metrics_path: reports/metrics/baseline_metrics.json
+  model_comparison_path: reports/metrics/model_comparison.json
+  training_run_path: models/registry/training_run.json
+  registered_model_path: models/registry/registered_model.json
+  staging_promotion_path: models/registry/staging_promotion.json
+  production_promotion_path: models/registry/production_promotion.json
 
 evaluation:
   top_k: 10
+  metrics:
+    - rmse
+    - mae
+    - mse
+    - r2
+    - median_absolute_error
+
+baselines:
+  models:
+    - dummy_mean
+    - dummy_median
+    - ridge_one_hot
+  ridge_alpha: 1.0
+
+quality_gate:
+  selection_metric: rmse
+  maximum_rmse: 0.26
+
+registry:
+  model_name: movielens-mlp-recommender
+  description: >
+    Modelo neural MLP PyTorch para previsão de ratings
+    no dataset MovieLens 100K.
+  initial_alias: candidate
+  await_registration_seconds: 300
+
+promotion:
+  staging_alias: staging
+  production_alias: production
+
+  require_quality_gate: true
+  require_staging_before_production: true
+  require_comparison_winner: false
+  sync_legacy_stage: true
+
+  staging_approved_by: Rafael Costa
+  staging_approval_notes: >
+    Modelo encaminhado para staging após aprovação do quality gate,
+    validação das métricas de teste e confirmação da rastreabilidade
+    da execução de treinamento no MLflow.
+
+  production_approved_by: Rafael Costa
+  production_approval_notes: >
+    Modelo aprovado para production após passagem pelo ambiente de
+    staging e cumprimento do limite máximo de RMSE definido para
+    o projeto.
