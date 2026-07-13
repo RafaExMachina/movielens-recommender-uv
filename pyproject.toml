@@ -1,6 +1,6 @@
 [project]
 name = "movielens-recommender"
-version = "0.3.1"
+version = "0.4.0"
 description = "Sistema de recomendação MovieLens com PyTorch, MLflow, DVC, Docker e uv"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"

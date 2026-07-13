@@ -1,118 +1,643 @@
 # MovieLens Recommender System com uv
 
-Sistema de recomendação baseado no dataset **MovieLens 100K**, estruturado como um projeto profissional de Machine Learning com código modular, ambiente reproduzível, versionamento de dados, rastreamento de experimentos e execução containerizada.
+Sistema de recomendação baseado no dataset **MovieLens 100K**, desenvolvido como
+um projeto completo de Machine Learning Engineering e MLOps.
 
-Versão atual:
+A versão atual implementa código modular, ambiente reproduzível, treinamento com
+PyTorch, comparação com baselines do Scikit-Learn, pipeline DVC, rastreamento com
+MLflow, Model Registry, quality gate e promoção controlada para Staging e
+Production.
 
 ```text
-0.3.1
+Versão: 0.4.0
+Python: 3.12
+Testes automatizados: 63
+Modelo registrado: movielens-mlp-recommender
+Alias de produção: production
 ```
 
-O repositório contém as seguintes entregas:
+## Visão geral da entrega
+
+O repositório contempla as quatro etapas do Tech Challenge:
 
 - **Etapa 1 — Clean Code e Estrutura**
 - **Etapa 2 — Ambiente e Dependências**
 - **Etapa 3 — DVC, Docker e MLflow**
+- **Etapa 4 — Rede Neural, Registry e Entrega**
+
+Também inclui documentação técnica específica:
+
+- [Model Card](docs/model_card.md)
+- [Arquitetura do pipeline e do deploy](docs/architecture.md)
+- [Plano de monitoramento](docs/monitoring.md)
 
 ## Objetivo
 
-Construir um pipeline profissional de Machine Learning para recomendação, com:
+Construir um pipeline profissional e reproduzível de recomendação de filmes, com:
 
-- código limpo, modular e testável;
-- gerenciamento reproduzível de dependências com `uv`;
-- versionamento de dados e artefatos com DVC;
-- pipeline composto por etapas independentes;
-- rastreamento de experimentos com MLflow;
-- treinamento e avaliação com PyTorch;
-- execução reproduzível com Docker e Docker Compose;
-- verificações automatizadas de qualidade;
-- integração contínua com GitHub Actions.
-
-## Etapas concluídas
-
-### Etapa 1 — Clean Code e Estrutura
-
-Foram implementados:
-
-- estrutura modular com layout `src`;
-- módulos com responsabilidades bem definidas;
-- type hints nas funções públicas;
-- docstrings no padrão Google;
-- princípios SOLID;
+- organização modular no layout `src`;
+- Clean Code, type hints e docstrings;
 - padrões Factory, Strategy, Template Method e Repository;
-- testes automatizados;
-- lint, formatação e verificação de tipos;
-- hooks com pre-commit;
-- integração contínua com GitHub Actions;
-- histórico de commits semântico.
-
-### Etapa 2 — Ambiente e Dependências
-
-Foram implementados:
-
-- gerenciamento de dependências com `uv`;
-- separação entre dependências de produção e desenvolvimento;
-- lockfile versionado com `uv.lock`;
-- versão do Python declarada em `.python-version`;
-- empacotamento com Hatchling;
-- instalação reproduzível com `uv sync --locked`;
-- build de distribuição em wheel e source distribution;
-- PyTorch CPU como instalação padrão;
-- configurações externas com Pydantic Settings;
-- arquivo `.env.example`;
-- integração das configurações com logging e MLflow;
-- script automatizado de validação do ambiente;
-- testes de configurações e validações;
-- instalação validada em ambiente virtual recriado do zero.
-
-### Etapa 3 — DVC, Docker e MLflow
-
-Foram implementados:
-
-- download reproduzível do dataset público MovieLens 100K;
-- remote DVC local para dados derivados, modelos e demais artefatos cacheados;
-- pipeline com cinco estágios:
-  - `download`;
-  - `preprocess`;
-  - `feature_eng`;
-  - `train`;
-  - `evaluate`;
-- dependências, parâmetros, métricas e outputs declarados em `dvc.yaml`;
-- estado reproduzível registrado em `dvc.lock`;
-- métricas de treinamento e avaliação rastreadas pelo DVC;
-- execução incremental com `dvc repro`;
-- execução completa com `dvc repro --force --no-run-cache`;
+- ambiente gerenciado por `uv`;
+- lockfile versionado;
+- treinamento de uma MLP com embeddings em PyTorch;
+- comparação com baselines do Scikit-Learn;
+- avaliação com múltiplas métricas;
+- pipeline versionado e incremental com DVC;
 - rastreamento de experimentos com MLflow;
-- servidor MLflow 2.14.0 com backend SQLite;
-- persistência do MLflow em volume Docker;
-- Dockerfile multi-stage;
-- execução do pipeline com usuário não-root;
-- orquestração com Docker Compose;
-- healthcheck do servidor MLflow;
-- execução de `dvc repro`, `dvc push`, métricas e status dentro do contêiner;
-- validação do pipeline no Docker Compose;
-- validação da persistência dos experimentos após reiniciar os serviços.
+- registro e versionamento no MLflow Model Registry;
+- aliases `candidate`, `staging` e `production`;
+- quality gate para promoção;
+- metadados de aprovação e rastreabilidade;
+- Dockerfile multi-stage e Docker Compose;
+- testes, lint, type checking, pre-commit e CI.
 
-## Tecnologias
+## Resultado principal
 
-- Python 3.12
-- uv
-- PyTorch CPU
-- Pandas
-- NumPy
-- Scikit-Learn
-- MLflow 2.14.0
-- DVC
-- Docker
-- Docker Compose
-- PyYAML
-- Pydantic Settings
-- Pytest
-- Ruff
-- mypy
-- pre-commit
-- Hatchling
-- GitHub Actions
+O modelo neural obteve as seguintes métricas no conjunto de teste:
+
+| Métrica | Valor |
+|---|---:|
+| RMSE normalizado | 0.247124 |
+| MAE normalizado | 0.197192 |
+| MSE normalizado | 0.061070 |
+| R² | 0.226679 |
+| Median Absolute Error | 0.166689 |
+| RMSE na escala original | 0.988496 |
+| MAE na escala original | 0.788768 |
+
+O quality gate foi configurado como:
+
+```yaml
+quality_gate:
+  selection_metric: rmse
+  maximum_rmse: 0.26
+```
+
+Resultado:
+
+```text
+RMSE observado: 0.247124
+Limite máximo:  0.260000
+Quality gate:   passed
+```
+
+O baseline `ridge_one_hot` apresentou RMSE menor, aproximadamente `0.236167`, e
+foi o vencedor da comparação. A MLP foi promovida porque passou no limite absoluto
+de qualidade e o projeto está configurado com:
+
+```yaml
+require_comparison_winner: false
+```
+
+Essa decisão é documentada explicitamente no
+[Model Card](docs/model_card.md).
+
+## Quick start para usuário externo
+
+Esta é a sequência recomendada para clonar, instalar, testar e reproduzir o
+projeto em outra máquina Linux.
+
+### 1. Clonar o repositório
+
+```bash
+git clone https://github.com/RafaExMachina/movielens-recommender-uv.git
+cd movielens-recommender-uv
+```
+
+### 2. Criar o arquivo de ambiente
+
+```bash
+cp .env.example .env
+```
+
+Para execução local, confirme:
+
+```dotenv
+APP_ENV=development
+LOG_LEVEL=INFO
+MLFLOW_TRACKING_URI=http://localhost:5000
+```
+
+### 3. Instalar o ambiente reproduzível
+
+```bash
+uv sync --locked
+```
+
+### 4. Validar a instalação
+
+```bash
+uv run python scripts/validate_env.py
+uv lock --check
+```
+
+### 5. Preparar o remote DVC local
+
+O projeto usa um diretório fora do repositório para cache DVC:
+
+```bash
+mkdir -p ../movielens-dvc-storage
+```
+
+Esse remote é útil para `dvc push` e `dvc pull`, mas não é necessário para obter o
+dataset bruto. O MovieLens 100K é baixado automaticamente pelo estágio `download`.
+
+### 6. Iniciar o MLflow
+
+```bash
+docker compose up -d mlflow
+```
+
+Confirme:
+
+```bash
+curl -fsS http://localhost:5000/version
+echo
+```
+
+Resultado esperado:
+
+```text
+2.14.0
+```
+
+A interface fica disponível em:
+
+```text
+http://localhost:5000
+```
+
+### 7. Reproduzir o pipeline completo
+
+```bash
+uv run dvc repro promote_production
+```
+
+Esse comando executa apenas as etapas necessárias e termina com:
+
+```text
+register
+→ promote_staging
+→ promote_production
+```
+
+Também é possível executar todo o grafo com:
+
+```bash
+uv run dvc repro
+```
+
+### 8. Verificar o estado
+
+```bash
+uv run dvc status
+uv run dvc metrics show
+uv run dvc dag
+```
+
+Resultado esperado do status:
+
+```text
+Data and pipelines are up to date.
+```
+
+### 9. Executar a suíte de qualidade
+
+```bash
+make check
+```
+
+O comando executa:
+
+- Ruff;
+- mypy;
+- Pytest;
+- pre-commit.
+
+Resultado esperado:
+
+```text
+63 passed
+```
+
+### 10. Gerar o pacote
+
+```bash
+uv build
+```
+
+Arquivos esperados:
+
+```text
+dist/movielens_recommender-0.4.0.tar.gz
+dist/movielens_recommender-0.4.0-py3-none-any.whl
+```
+
+## Arquitetura de alto nível
+
+```mermaid
+flowchart LR
+    DEV[Desenvolvedor] --> GIT[Git e GitHub]
+    DEV --> UV[uv e uv.lock]
+    UV --> DVC[DVC Pipeline]
+
+    DVC --> DATA[Dados e metadados]
+    DVC --> TRAIN[Treinamento PyTorch]
+    DVC --> BASE[Baselines Scikit-Learn]
+
+    TRAIN --> TRACKING[MLflow Tracking]
+    TRAIN --> EVAL[Avaliação]
+    BASE --> COMPARE[Comparação]
+    EVAL --> COMPARE
+
+    TRACKING --> REGISTRY[MLflow Model Registry]
+    COMPARE --> GATE[Quality Gate]
+    REGISTRY --> GATE
+
+    GATE --> CANDIDATE[candidate]
+    CANDIDATE --> STAGING[staging]
+    STAGING --> PRODUCTION[production]
+```
+
+A descrição completa está em
+[docs/architecture.md](docs/architecture.md).
+
+## Pipeline DVC
+
+O pipeline atual possui dez estágios:
+
+```text
+download
+   ↓
+preprocess
+   ↓
+feature_eng
+   ├───────────────┐
+   ↓               ↓
+train          baseline
+   ↓               ↓
+evaluate ─────→ compare
+   ↓               ↓
+   └──────────→ register
+                    ↓
+             promote_staging
+                    ↓
+             promote_production
+```
+
+### `download`
+
+Baixa e extrai o MovieLens 100K em:
+
+```text
+data/raw/ml-100k/
+```
+
+### `preprocess`
+
+Limpa e valida os registros, produzindo:
+
+```text
+data/interim/ratings_clean.csv
+```
+
+### `feature_eng`
+
+Cria as divisões e os metadados:
+
+```text
+data/processed/train.csv
+data/processed/valid.csv
+data/processed/test.csv
+data/processed/metadata.json
+```
+
+### `train`
+
+Treina a MLP em PyTorch, registra a execução no MLflow e salva:
+
+```text
+models/checkpoints/model.pt
+models/registry/training_run.json
+reports/metrics/train_metrics.json
+```
+
+### `evaluate`
+
+Avalia o checkpoint no conjunto de teste e salva:
+
+```text
+reports/metrics/evaluation_metrics.json
+```
+
+### `baseline`
+
+Treina e avalia:
+
+```text
+dummy_mean
+dummy_median
+ridge_one_hot
+```
+
+Saída:
+
+```text
+reports/metrics/baseline_metrics.json
+```
+
+### `compare`
+
+Compara a MLP com os baselines usando múltiplas métricas.
+
+Saída:
+
+```text
+reports/metrics/model_comparison.json
+```
+
+### `register`
+
+Registra ou reutiliza a versão correspondente ao Run ID e associa o alias:
+
+```text
+candidate
+```
+
+Saída:
+
+```text
+models/registry/registered_model.json
+```
+
+### `promote_staging`
+
+Valida o quality gate e promove a mesma versão para:
+
+```text
+staging
+```
+
+Saída:
+
+```text
+models/registry/staging_promotion.json
+```
+
+### `promote_production`
+
+Exige passagem prévia por Staging e promove para:
+
+```text
+production
+```
+
+Saída:
+
+```text
+models/registry/production_promotion.json
+```
+
+## MLflow Experiment Tracking
+
+O experimento padrão é:
+
+```text
+movielens-recommender
+```
+
+O treinamento registra:
+
+- hiperparâmetros;
+- métricas;
+- perdas;
+- melhor época;
+- artefatos;
+- assinatura do modelo;
+- exemplo de entrada;
+- checkpoint;
+- Run ID.
+
+Run correspondente à versão atual:
+
+```text
+dce4e464561d4af99f1752d0bbcc87bd
+```
+
+## MLflow Model Registry
+
+Modelo registrado:
+
+```text
+movielens-mlp-recommender
+```
+
+Versão atual:
+
+```text
+1
+```
+
+Aliases:
+
+```text
+candidate
+staging
+production
+```
+
+URIs:
+
+```text
+models:/movielens-mlp-recommender@candidate
+models:/movielens-mlp-recommender@staging
+models:/movielens-mlp-recommender@production
+```
+
+O alias é a referência estável. Um consumidor não precisa conhecer o número da
+versão, apenas o nome lógico aprovado.
+
+### Validar os aliases
+
+```bash
+uv run python - <<'PY'
+import mlflow
+from mlflow import MlflowClient
+
+from recommender.utils.settings import get_settings
+
+tracking_uri = str(get_settings().mlflow_tracking_uri)
+
+mlflow.set_tracking_uri(tracking_uri)
+mlflow.set_registry_uri(tracking_uri)
+
+client = MlflowClient()
+name = "movielens-mlp-recommender"
+
+for alias in ("candidate", "staging", "production"):
+    model_version = client.get_model_version_by_alias(name, alias)
+    print(
+        f"{alias}: versão={model_version.version}, "
+        f"run_id={model_version.run_id}, "
+        f"stage={model_version.current_stage}"
+    )
+PY
+```
+
+Todos os aliases podem apontar para a mesma versão. Nesse caso, o campo legado
+`current_stage` pertence à versão e poderá aparecer como `Production` nas três
+consultas.
+
+## Promoção e governança
+
+O fluxo de governança é:
+
+```text
+candidate
+   ↓ quality gate
+staging
+   ↓ aprovação
+production
+```
+
+A promoção valida:
+
+- status `READY`;
+- nome e versão;
+- Run ID de origem;
+- RMSE e limite;
+- passagem por Staging;
+- responsável;
+- justificativa;
+- data UTC;
+- vencedor da comparação;
+- política de promoção.
+
+Configuração:
+
+```yaml
+promotion:
+  staging_alias: staging
+  production_alias: production
+  require_quality_gate: true
+  require_staging_before_production: true
+  require_comparison_winner: false
+  sync_legacy_stage: true
+```
+
+O estágio legado do MLflow 2.14 foi mantido apenas para compatibilidade visual.
+Os aliases são a referência principal da aplicação.
+
+## Consumir o modelo aprovado
+
+Exemplo conceitual:
+
+```python
+import mlflow
+import pandas as pd
+
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_registry_uri("http://localhost:5000")
+
+model = mlflow.pyfunc.load_model(
+    "models:/movielens-mlp-recommender@production"
+)
+
+sample = pd.DataFrame(
+    [{"user_id": 10, "item_id": 42}]
+)
+
+prediction = model.predict(sample)
+print(prediction)
+```
+
+O modelo espera usuários e itens conhecidos pelo treinamento. O tratamento de
+cold start é uma evolução futura.
+
+## Execução com Docker
+
+### Requisitos
+
+- Docker;
+- Docker Compose;
+- Git.
+
+Confirme:
+
+```bash
+docker --version
+docker compose version
+```
+
+### Preparar o ambiente
+
+```bash
+cp .env.example .env
+
+export LOCAL_UID="$(id -u)"
+export LOCAL_GID="$(id -g)"
+
+mkdir -p ../movielens-dvc-storage
+```
+
+### Construir a imagem
+
+```bash
+docker compose build pipeline
+```
+
+### Iniciar o MLflow
+
+```bash
+docker compose up -d mlflow
+docker compose ps
+```
+
+O serviço deve ficar saudável.
+
+### Executar o pipeline
+
+```bash
+docker compose run --rm pipeline
+```
+
+Dentro da rede Docker, a aplicação utiliza:
+
+```text
+MLFLOW_TRACKING_URI=http://mlflow:5000
+```
+
+### Forçar a reconstrução completa
+
+```bash
+docker compose run --rm pipeline \
+  sh -eu -c '
+    printf "%s\n" \
+      "[core]" \
+      "    no_scm = true" \
+      > /app/.dvc/config.local
+
+    uv run dvc repro --force --no-run-cache
+    uv run dvc push
+    uv run dvc metrics show
+    uv run dvc status
+  '
+```
+
+### Encerrar
+
+```bash
+docker compose down
+```
+
+Para remover também os dados persistidos do MLflow:
+
+```bash
+docker compose down -v
+```
+
+> Esse comando apaga o banco e os artefatos armazenados nos volumes Docker.
 
 ## Estrutura do projeto
 
@@ -132,22 +657,35 @@ movielens-recommender-uv/
 │   ├── interim/
 │   ├── processed/
 │   └── raw/
-│       └── ml-100k/              # gerado pelo estágio download
+├── docs/
+│   ├── architecture.md
+│   ├── model_card.md
+│   └── monitoring.md
 ├── models/
 │   ├── checkpoints/
 │   ├── exported/
 │   └── registry/
+│       ├── training_run.json
+│       ├── registered_model.json
+│       ├── staging_promotion.json
+│       └── production_promotion.json
 ├── notebooks/
 ├── reports/
 │   ├── figures/
 │   ├── metrics/
+│   │   ├── train_metrics.json
 │   │   ├── evaluation_metrics.json
-│   │   └── train_metrics.json
+│   │   ├── baseline_metrics.json
+│   │   └── model_comparison.json
 │   └── predictions/
 ├── scripts/
+│   ├── compare_models.py
 │   ├── download_data.py
 │   ├── evaluate.py
 │   ├── predict.py
+│   ├── promote_model.py
+│   ├── register_model.py
+│   ├── run_baselines.py
 │   ├── run_pipeline.py
 │   ├── train.py
 │   └── validate_env.py
@@ -165,10 +703,14 @@ movielens-recommender-uv/
 │       └── utils/
 ├── tests/
 │   ├── test_base_pipeline.py
+│   ├── test_baselines.py
+│   ├── test_comparison.py
 │   ├── test_data_loader.py
 │   ├── test_features.py
 │   ├── test_metrics.py
 │   ├── test_model_factory.py
+│   ├── test_model_promotion.py
+│   ├── test_model_registry.py
 │   ├── test_pipeline_stages.py
 │   ├── test_preprocess.py
 │   ├── test_settings.py
@@ -189,144 +731,74 @@ movielens-recommender-uv/
 └── uv.lock
 ```
 
-Os diretórios de dados, modelos e relatórios utilizam arquivos `.gitkeep` quando necessário para preservar a estrutura sem versionar datasets, checkpoints ou artefatos pesados diretamente no Git.
-
-## Arquitetura
-
-O código principal está localizado em:
-
-```text
-src/recommender/
-```
-
-A aplicação está dividida por responsabilidade:
-
-| Diretório | Responsabilidade |
-|---|---|
-| `data/` | carregamento, preparação e divisão dos dados |
-| `features/` | construção e transformação de atributos |
-| `models/` | modelos e criação de instâncias |
-| `training/` | treinamento, perdas, callbacks e otimizadores |
-| `evaluation/` | métricas e estratégias de avaliação |
-| `inference/` | predição e serviço de recomendação |
-| `pipeline/` | organização dos fluxos de treinamento e inferência |
-| `repositories/` | persistência e recuperação de artefatos |
-| `tracking/` | integração e abstrações para MLflow |
-| `utils/` | configurações, logging, caminhos e reprodutibilidade |
-
-## Padrões de projeto
+## Clean Code e padrões de projeto
 
 ### Factory
-
-Centraliza a criação dos modelos de recomendação:
 
 ```text
 src/recommender/models/model_factory.py
 ```
 
-A Factory reduz o acoplamento entre o pipeline e as implementações concretas dos modelos.
+Centraliza a criação dos modelos.
 
 ### Strategy
-
-Permite diferentes estratégias de avaliação:
 
 ```text
 src/recommender/evaluation/metric_strategy.py
 ```
 
-Novas métricas podem ser adicionadas sem modificar o fluxo principal.
+Permite estratégias de avaliação extensíveis.
 
 ### Template Method
-
-Define a estrutura geral dos pipelines:
 
 ```text
 src/recommender/pipeline/base_pipeline.py
 ```
 
-A classe base define a sequência de execução, enquanto as subclasses implementam etapas específicas.
+Define o fluxo geral dos pipelines.
 
 ### Repository
-
-Abstrai o armazenamento e a recuperação de artefatos:
 
 ```text
 src/recommender/repositories/artifact_repository.py
 ```
 
-Essa separação evita que o código de domínio dependa diretamente do sistema de arquivos.
+Abstrai a persistência de artefatos e metadados.
 
-## Requisitos
+## Configuração
 
-### Execução local
+Os hiperparâmetros e políticas ficam em:
 
-É necessário ter:
-
-- Git;
-- Python 3.12;
-- uv.
-
-Para instalar o `uv` no Linux:
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+```text
+params.yaml
 ```
 
-Confirme a instalação:
+Principais grupos:
 
-```bash
-uv --version
+```text
+data
+model
+training
+tracking
+artifacts
+evaluation
+baselines
+quality_gate
+registry
+promotion
 ```
 
-### Execução containerizada
+Configurações de ambiente são carregadas por Pydantic Settings.
 
-É necessário ter:
-
-- Docker;
-- Docker Compose;
-- Git.
-
-Confirme:
-
-```bash
-docker --version
-docker compose version
-```
-
-## Clonar o repositório
-
-```bash
-git clone https://github.com/RafaExMachina/movielens-recommender-uv.git
-cd movielens-recommender-uv
-```
-
-## Instalação reproduzível
-
-Instale o projeto e as dependências registradas no lockfile:
-
-```bash
-uv sync --locked
-```
-
-O comando:
-
-- cria o ambiente virtual em `.venv`;
-- instala o pacote `movielens-recommender`;
-- instala as dependências de produção e desenvolvimento;
-- utiliza as versões registradas no `uv.lock`;
-- falha caso `pyproject.toml` e `uv.lock` estejam dessincronizados.
-
-Não é necessário ativar manualmente o ambiente virtual. Os comandos podem ser executados com `uv run`.
-
-Para instalar apenas as dependências de produção:
-
-```bash
-uv sync --locked --no-dev
-```
+| Variável | Descrição | Padrão |
+|---|---|---|
+| `APP_ENV` | ambiente da aplicação | `development` |
+| `LOG_LEVEL` | nível de log | `INFO` |
+| `MLFLOW_TRACKING_URI` | servidor MLflow | `http://localhost:5000` |
 
 ## PyTorch CPU
 
-O projeto utiliza o build CPU do PyTorch como padrão:
+O projeto utiliza o índice CPU:
 
 ```toml
 [tool.uv.sources]
@@ -338,410 +810,22 @@ url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 ```
 
-Essa configuração evita a instalação de bibliotecas CUDA e NVIDIA desnecessárias para execução em CPU.
-
-Verifique:
+Valide:
 
 ```bash
 uv run python -c \
 'import torch; print("PyTorch:", torch.__version__); print("CUDA:", torch.cuda.is_available())'
 ```
 
-Em uma instalação CPU, espera-se:
+Resultado esperado:
 
 ```text
 CUDA: False
 ```
 
-## Configurações de ambiente
-
-As configurações específicas de ambiente são carregadas por:
-
-```text
-src/recommender/utils/settings.py
-```
-
-O carregamento e a validação são realizados com Pydantic Settings.
-
-| Variável | Descrição | Valor padrão |
-|---|---|---|
-| `APP_ENV` | ambiente da aplicação | `development` |
-| `LOG_LEVEL` | nível de logging | `INFO` |
-| `MLFLOW_TRACKING_URI` | endereço do MLflow | `http://localhost:5000` |
-
-Valores aceitos por `APP_ENV`:
-
-```text
-development
-test
-production
-```
-
-Crie um arquivo `.env` local:
-
-```bash
-cp .env.example .env
-```
-
-Exemplo:
-
-```dotenv
-APP_ENV=development
-LOG_LEVEL=INFO
-MLFLOW_TRACKING_URI=http://localhost:5000
-```
-
-O arquivo `.env` não deve ser versionado. Apenas `.env.example` permanece no repositório.
-
-Variáveis do sistema operacional possuem precedência sobre o arquivo `.env`.
-
-## Parâmetros de treinamento
-
-Os parâmetros de dados, treinamento e avaliação estão em:
-
-```text
-params.yaml
-```
-
-Entre eles:
-
-- seed;
-- caminhos dos dados;
-- proporções de treino, validação e teste;
-- dimensão dos embeddings;
-- número de épocas;
-- batch size;
-- learning rate;
-- top-k da avaliação;
-- nome do experimento MLflow.
-
-Essa separação evita misturar configurações de infraestrutura com hiperparâmetros do modelo.
-
-## Versionamento de dados com DVC
-
-O dataset MovieLens 100K é público e é obtido diretamente da fonte oficial pelo estágio `download` do pipeline DVC:
-
-```text
-scripts/download_data.py
-```
-
-O diretório gerado é:
-
-```text
-data/raw/ml-100k/
-```
-
-Esse diretório não é versionado pelo Git e não depende de um arquivo `data/raw/ml-100k.dvc`. Quando o dataset não existe, o comando abaixo executa o download automaticamente:
-
-```bash
-uv run dvc repro
-```
-
-Os dados derivados, modelos e demais outputs cacheados continuam sendo controlados pelo DVC.
-
-Envie os artefatos disponíveis no cache para o remote:
-
-```bash
-uv run dvc push
-```
-
-Opcionalmente, recupere artefatos cacheados de uma execução anterior:
-
-```bash
-uv run dvc pull
-```
-
-O `dvc pull` não é necessário para obter o dataset bruto, pois ele é recriado pelo estágio `download`.
-
-Verifique o estado:
-
-```bash
-uv run dvc status
-```
-
-Resultado esperado quando tudo estiver atualizado:
-
-```text
-Data and pipelines are up to date.
-```
-
-### Remote DVC local
-
-O projeto utiliza um remote local localizado fora do repositório:
-
-```text
-../movielens-dvc-storage
-```
-
-Esse diretório não é enviado ao GitHub. Ele é utilizado para armazenar outputs cacheados do DVC, como dados processados e modelos.
-
-Crie o diretório quando necessário:
-
-```bash
-mkdir -p ../movielens-dvc-storage
-```
-
-## Pipeline DVC
-
-O pipeline é definido em:
-
-```text
-dvc.yaml
-```
-
-A sequência é:
-
-```text
-download
-   ↓
-preprocess
-   ↓
-feature_eng
-   ↓
-train
-   ↓
-evaluate
-```
-
-### Estágio `download`
-
-Responsável por:
-
-- baixar o MovieLens 100K da fonte oficial;
-- extrair o conteúdo em `data/raw/ml-100k/`;
-- permitir a reconstrução do dataset sem depender de um remote DVC;
-- evitar download desnecessário quando o dataset já existe.
-
-### Estágio `preprocess`
-
-Responsável por:
-
-- carregar os dados brutos;
-- limpar e validar os registros;
-- gerar os dados intermediários.
-
-### Estágio `feature_eng`
-
-Responsável por:
-
-- construir os conjuntos de treino, validação e teste;
-- gerar metadados utilizados pelo modelo.
-
-### Estágio `train`
-
-Responsável por:
-
-- construir o modelo;
-- treinar com PyTorch;
-- registrar parâmetros, métricas e artefatos no MLflow;
-- salvar o checkpoint;
-- gerar métricas de treinamento.
-
-### Estágio `evaluate`
-
-Responsável por:
-
-- carregar o checkpoint;
-- avaliar o modelo no conjunto de teste;
-- calcular RMSE e MAE;
-- gerar as métricas finais.
-
-Execute o pipeline:
-
-```bash
-uv run dvc repro
-```
-
-Quando dados, código, parâmetros e outputs não mudaram, o DVC pula os estágios atualizados.
-
-Force a execução completa sem reutilizar o cache de execuções anteriores:
-
-```bash
-uv run dvc repro --force --no-run-cache
-```
-
-Visualize as métricas:
-
-```bash
-uv run dvc metrics show
-```
-
-Exemplo:
-
-```text
-Path                                     best_epoch    best_train_loss    best_validation_rmse    mae      rmse
-reports/metrics/train_metrics.json       5.0           0.05233            0.24592                 -        -
-reports/metrics/evaluation_metrics.json  -             -                  -                       0.19719  0.24712
-```
-
-Visualize o grafo:
-
-```bash
-uv run dvc dag
-```
-
-## MLflow
-
-O treinamento registra experimentos no MLflow.
-
-O nome padrão do experimento é:
-
-```text
-movielens-recommender
-```
-
-São registrados, entre outros:
-
-- hiperparâmetros;
-- perdas de treinamento;
-- RMSE de validação;
-- melhor época;
-- modelo e artefatos relacionados.
-
-Na execução com Docker Compose, a interface fica disponível em:
-
-```text
-http://localhost:5000
-```
-
-O servidor utiliza:
-
-- MLflow 2.14.0;
-- SQLite como backend;
-- volume `mlflow_data` para persistência;
-- healthcheck antes da inicialização do pipeline.
-
-Cada execução real do estágio `train` cria um novo run. Quando o DVC identifica que o estágio está atualizado e o pula, nenhum novo run é criado.
-
-## Execução com Docker
-
-### 1. Definir UID e GID
-
-No Linux:
-
-```bash
-export LOCAL_UID="$(id -u)"
-export LOCAL_GID="$(id -g)"
-```
-
-Esses valores permitem que os arquivos produzidos no contêiner pertençam ao usuário local.
-
-### 2. Construir a imagem
-
-```bash
-docker compose build pipeline
-```
-
-O Dockerfile utiliza build multi-stage e instala as dependências a partir de:
-
-```text
-pyproject.toml
-uv.lock
-```
-
-### 3. Iniciar o MLflow
-
-```bash
-docker compose up -d mlflow
-```
-
-Verifique:
-
-```bash
-docker compose ps
-```
-
-O serviço deve aparecer como:
-
-```text
-healthy
-```
-
-A interface estará disponível em:
-
-```text
-http://localhost:5000
-```
-
-### 4. Executar o pipeline
-
-```bash
-docker compose run --rm pipeline
-```
-
-O serviço executa:
-
-1. configuração do DVC em modo `no_scm`;
-2. `dvc repro`;
-3. `dvc push`;
-4. `dvc metrics show`;
-5. `dvc status`.
-
-O estágio `download` obtém automaticamente o MovieLens 100K quando o dataset bruto ainda não existe.
-
-A execução normal é incremental. Sem alterações, os estágios são pulados.
-
-### 5. Forçar todos os estágios
-
-```bash
-docker compose run --rm pipeline \
-  sh -eu -c '
-    printf "%s\n" \
-      "[core]" \
-      "    no_scm = true" \
-      > /app/.dvc/config.local
-
-    uv run dvc repro --force --no-run-cache
-    uv run dvc push
-    uv run dvc metrics show
-    uv run dvc status
-  '
-```
-
-Esse comando executa novamente `download`, `preprocess`, `feature_eng`, `train` e `evaluate`, criando um novo run no MLflow.
-
-### 6. Encerrar os serviços
-
-```bash
-docker compose down
-```
-
-Os experimentos permanecem disponíveis porque o volume `mlflow_data` é preservado.
-
-Para apagar também os volumes:
-
-```bash
-docker compose down -v
-```
-
-> Esse último comando remove o banco e os artefatos persistidos pelo MLflow.
-
-## Validação do ambiente
+## Testes
 
 Execute:
-
-```bash
-uv run python scripts/validate_env.py
-```
-
-O script verifica:
-
-- versão do Python;
-- arquivos necessários;
-- instalação das dependências;
-- instalação do pacote;
-- carregamento do Pydantic Settings;
-- ambiente atual;
-- nível de log;
-- URI do MLflow.
-
-Resultado esperado:
-
-```text
-Ambiente validado com sucesso.
-```
-
-## Executar os testes
 
 ```bash
 uv run pytest
@@ -753,9 +837,27 @@ Ou:
 make test
 ```
 
-A versão `0.3.1` possui **16 testes automatizados**.
+A versão `0.4.0` possui:
 
-## Verificação de qualidade
+```text
+63 testes automatizados
+```
+
+Entre eles:
+
+- pipeline base;
+- dados e preprocessamento;
+- features;
+- métricas;
+- Factory;
+- treinamento;
+- baselines;
+- comparação;
+- configurações;
+- Model Registry;
+- promoção Staging/Production.
+
+## Qualidade de código
 
 ### Ruff
 
@@ -763,10 +865,10 @@ A versão `0.3.1` possui **16 testes automatizados**.
 uv run ruff check src tests scripts
 ```
 
-Ou:
+### Formatação
 
 ```bash
-make lint
+uv run ruff format src tests scripts
 ```
 
 ### mypy
@@ -775,277 +877,244 @@ make lint
 uv run mypy src
 ```
 
-Ou:
-
-```bash
-make type
-```
-
-### Pre-commit
+### pre-commit
 
 ```bash
 uv run pre-commit run --all-files
 ```
 
-### Verificação completa
+### Validação completa
 
 ```bash
 make check
 ```
 
-Também pode ser executada manualmente:
-
-```bash
-uv run ruff check src tests scripts
-uv run mypy src
-uv run pytest
-uv run pre-commit run --all-files
-```
-
-## Formatação
-
-```bash
-uv run ruff format src tests scripts
-```
-
-Ou:
-
-```bash
-make format
-```
-
-## Build do pacote
-
-Gere o source distribution e o wheel:
+## Build
 
 ```bash
 uv build
 ```
 
-Arquivos esperados:
-
-```text
-dist/movielens_recommender-0.3.1.tar.gz
-dist/movielens_recommender-0.3.1-py3-none-any.whl
-```
-
-Confira a versão instalada:
+Verifique a versão instalada:
 
 ```bash
-uv run python -c \
-'from importlib.metadata import version; print(version("movielens-recommender"))'
+uv run python - <<'PY'
+from importlib.metadata import version
+
+print(version("movielens-recommender"))
+PY
 ```
 
-Resultado esperado:
+Resultado:
 
 ```text
-0.3.1
+0.4.0
 ```
 
 ## Integração contínua
 
-O workflow está em:
+O workflow fica em:
 
 ```text
 .github/workflows/ci.yml
 ```
 
-A integração contínua é executada após pushes e pull requests.
+A CI executa verificações de qualidade em pushes e pull requests:
 
-As verificações incluem:
+- instalação reproduzível;
+- Ruff;
+- mypy;
+- Pytest;
+- pre-commit.
 
-- instalação das dependências;
-- lint com Ruff;
-- verificação de tipos com mypy;
-- testes com Pytest;
-- hooks do pre-commit.
+## Documentação
 
-## Arquivos não versionados
+| Documento | Conteúdo |
+|---|---|
+| [Model Card](docs/model_card.md) | desempenho, limitações, vieses e governança |
+| [Arquitetura](docs/architecture.md) | pipeline, Registry, entrega e rollback |
+| [Monitoramento](docs/monitoring.md) | métricas, alertas, drift e retreinamento |
 
-O `.gitignore` impede o envio de arquivos locais ou gerados, incluindo:
+## Etapas concluídas
 
-```text
-.venv/
-.env
-__pycache__/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-dist/
-mlruns/
-mlruns-local/
-mlartifacts/
-mlflow.db
-.dvc/cache/
-.dvc/tmp/
-data/raw/ml-100k/
-data/interim/*
-data/processed/*
-data/features/*
-models/checkpoints/*
-models/exported/*
-models/registry/*
-reports/figures/*
-reports/predictions/*
-```
+### Etapa 1 — Clean Code e Estrutura
 
-São versionados:
+- estrutura modular;
+- naming conventions;
+- SOLID;
+- type hints;
+- docstrings Google;
+- Factory, Strategy, Template Method e Repository;
+- Ruff;
+- pre-commit;
+- testes;
+- GitHub Actions.
 
-- `dvc.yaml`;
-- `dvc.lock`;
-- `params.yaml`;
-- `scripts/download_data.py`;
-- métricas JSON em `reports/metrics/`;
-- arquivos `.gitkeep` necessários.
+### Etapa 2 — Ambiente e Dependências
+
+- `pyproject.toml`;
+- dependências de produção e desenvolvimento;
+- `uv.lock`;
+- Python 3.12;
+- Pydantic Settings;
+- `.env.example`;
+- script de validação;
+- instalação limpa;
+- wheel e source distribution.
+
+### Etapa 3 — Containerização e Versionamento
+
+- Dockerfile multi-stage;
+- usuário não-root;
+- Docker Compose;
+- MLflow;
+- DVC;
+- download reproduzível;
+- pipeline incremental;
+- métricas e artefatos;
+- remote local;
+- persistência do MLflow.
+
+### Etapa 4 — Rede Neural, Registry e Entrega
+
+- MLP com embeddings em PyTorch;
+- baselines Scikit-Learn;
+- comparação com múltiplas métricas;
+- Model Registry;
+- versão registrada;
+- alias `candidate`;
+- promoção para `staging`;
+- promoção para `production`;
+- quality gate;
+- Model Card;
+- arquitetura;
+- plano de monitoramento;
+- 63 testes.
+
+## Critérios do Tech Challenge
+
+| Critério | Atendimento |
+|---|---|
+| Clean Code e estrutura | SOLID, naming, type hints, docstrings e padrões |
+| Reprodutibilidade | `uv`, lockfile, configurações e instalação limpa |
+| Docker | multi-stage, Compose, usuário não-root e MLflow |
+| DVC e pipeline | dez estágios e execução incremental |
+| Rede neural | MLP PyTorch com embeddings |
+| Baselines | Dummy Mean, Dummy Median e Ridge One-Hot |
+| Métricas | RMSE, MAE, MSE, R² e Median Absolute Error |
+| MLflow e Registry | runs, artefatos, versão e aliases |
+| Produção | promoção governada para `production` |
+| Documentação | README, Model Card, arquitetura e monitoramento |
+
+## Limitações
+
+- a MLP não venceu o baseline `ridge_one_hot`;
+- usuários e itens desconhecidos exigem estratégia de cold start;
+- o dataset representa um contexto histórico;
+- não existe endpoint público de inferência;
+- não existe monitoramento online ativo;
+- não existe deploy em nuvem;
+- não existe Kubernetes;
+- não existe retreinamento automático.
+
+O alias `production` significa que a versão foi aprovada no Model Registry do
+projeto. Não significa que exista uma aplicação comercial pública em operação.
 
 ## Comandos principais
 
 | Comando | Descrição |
 |---|---|
-| `uv sync --locked` | instala o ambiente usando o lockfile |
-| `uv sync --locked --no-dev` | instala apenas dependências de produção |
-| `uv lock --check` | verifica se o lockfile está atualizado |
+| `uv sync --locked` | instala o ambiente reproduzível |
+| `uv lock --check` | valida o lockfile |
 | `uv run python scripts/validate_env.py` | valida o ambiente |
-| `uv run dvc pull` | recupera artefatos cacheados do remote, de forma opcional |
-| `uv run dvc repro` | baixa o dataset quando necessário e executa o pipeline incremental |
-| `uv run dvc repro --force --no-run-cache` | força todos os estágios sem reutilizar o cache de execução |
-| `uv run dvc push` | envia dados e artefatos ao remote |
-| `uv run dvc metrics show` | exibe métricas |
-| `uv run dvc status` | verifica o estado do pipeline |
-| `docker compose build pipeline` | constrói a imagem do pipeline |
 | `docker compose up -d mlflow` | inicia o MLflow |
-| `docker compose run --rm pipeline` | executa o pipeline no Docker |
-| `docker compose down` | encerra os serviços |
-| `uv run pytest` | executa os testes |
-| `make lint` | executa Ruff |
-| `make format` | formata o código |
-| `make type` | executa mypy |
-| `make test` | executa Pytest |
+| `uv run dvc repro` | reproduz o pipeline |
+| `uv run dvc repro promote_production` | reproduz até Production |
+| `uv run dvc status` | verifica o pipeline |
+| `uv run dvc dag` | mostra o grafo |
+| `uv run dvc metrics show` | mostra métricas |
+| `uv run dvc push` | envia artefatos ao remote |
+| `uv run dvc pull` | recupera artefatos do remote |
+| `uv run pytest` | executa testes |
 | `make check` | executa todas as verificações |
 | `uv build` | gera wheel e source distribution |
+| `docker compose build pipeline` | constrói a imagem |
+| `docker compose run --rm pipeline` | executa no Docker |
+| `docker compose down` | encerra os serviços |
 
-## Reproduzir a entrega localmente
+## Reproduzir a entrega completa
 
 ```bash
 git clone https://github.com/RafaExMachina/movielens-recommender-uv.git
 cd movielens-recommender-uv
 
-uv sync --locked
-uv run python scripts/validate_env.py
+cp .env.example .env
 mkdir -p ../movielens-dvc-storage
-uv run dvc repro
+
+uv sync --locked
+uv lock --check
+uv run python scripts/validate_env.py
+
+docker compose up -d mlflow
+curl -fsS http://localhost:5000/version
+echo
+
+uv run dvc repro promote_production
+uv run dvc status
 uv run dvc metrics show
+
 make check
 uv build
 ```
 
-O dataset bruto é baixado automaticamente pelo estágio `download`. O remote DVC local é utilizado para armazenar e recuperar artefatos cacheados, mas não é necessário para obter o MovieLens 100K.
-
-## Reproduzir a entrega com Docker
-
-```bash
-git clone https://github.com/RafaExMachina/movielens-recommender-uv.git
-cd movielens-recommender-uv
-
-export LOCAL_UID="$(id -u)"
-export LOCAL_GID="$(id -g)"
-
-mkdir -p ../movielens-dvc-storage
-
-docker compose build pipeline
-docker compose up -d mlflow
-docker compose run --rm pipeline
-```
-
-Acesse:
+Acesse o MLflow:
 
 ```text
 http://localhost:5000
 ```
 
-Encerre os serviços:
+Ao final, confira:
 
 ```bash
-docker compose down
+uv run python - <<'PY'
+from importlib.metadata import version
+
+print("Versão do pacote:", version("movielens-recommender"))
+PY
 ```
 
-## Critérios atendidos
+Resultado esperado:
 
-### Etapa 1
-
-- estrutura modular;
-- Clean Code;
-- princípios SOLID;
-- padrões de projeto;
-- type hints;
-- docstrings;
-- lint;
-- testes;
-- pre-commit;
-- integração contínua.
-
-### Etapa 2
-
-- dependências de produção e desenvolvimento separadas;
-- `pyproject.toml` configurado;
-- `uv.lock` versionado;
-- Python 3.12 definido;
-- configurações externalizadas;
-- validação com Pydantic Settings;
-- script de validação do ambiente;
-- instalação limpa com `uv sync --locked`;
-- build de wheel e source distribution;
-- PyTorch CPU.
-
-### Etapa 3
-
-- download reproduzível do dataset público MovieLens 100K;
-- remote DVC configurado para artefatos cacheados;
-- pipeline com cinco estágios;
-- `dvc.yaml` e `dvc.lock`;
-- métricas versionadas;
-- execução incremental e forçada;
-- rastreamento com MLflow;
-- persistência com SQLite e volume Docker;
-- Dockerfile multi-stage;
-- usuário não-root;
-- Docker Compose;
-- healthcheck do MLflow;
-- pipeline reproduzível dentro do contêiner;
-- versão `0.3.1`.
-
-## Próximas etapas
-
-Possíveis evoluções:
-
-- registro e promoção de modelos;
-- API de inferência;
-- testes de integração adicionais;
-- automação de build e publicação da imagem;
-- CI/CD;
-- observabilidade;
-- implantação em ambiente de nuvem ou Kubernetes.
+```text
+Versão do pacote: 0.4.0
+```
 
 ## Status atual
 
-A entrega está validada quando os comandos abaixo terminam sem erros:
-
-```bash
-uv lock --check
-uv sync --locked
-uv run python scripts/validate_env.py
-uv run dvc repro
-uv run dvc status
-uv run ruff check src tests scripts
-uv run mypy src
-uv run pytest
-uv run pre-commit run --all-files
-docker compose config
-```
-
-Estado validado na versão:
-
 ```text
-0.3.1
+Versão: 0.4.0
+Testes: 63 passed
+Ruff: passed
+mypy: passed
+pre-commit: passed
+DVC: Data and pipelines are up to date
+Modelo: movielens-mlp-recommender
+Registry version: 1
+Aliases: candidate, staging, production
+Quality gate: passed
 ```
 
+## Próximas evoluções
+
+- API FastAPI para inferência;
+- fallback para cold start;
+- recomendação Top-K;
+- métricas de ranking;
+- dashboard de monitoramento;
+- detecção automática de drift;
+- publicação de imagem Docker;
+- aprovação manual em CI/CD;
+- deploy em nuvem;
+- Kubernetes;
+- estratégia Canary ou Blue-Green;
+- retreinamento automatizado.
