@@ -53,13 +53,13 @@ Construir um pipeline profissional e reproduzível de recomendação de filmes, 
 - testes, lint, type checking, pre-commit e CI.
 
 ---
-
+git
 ## 🎥 Vídeo de Apresentação
 
 A apresentação do trabalho foi realizada utilizando o **método STAR**  
 (**Situação, Tarefa, Ação e Resultado**), com o objetivo de estruturar a explicação do projeto de forma clara, objetiva e orientada a resultados.
 
-🔗 Assista ao vídeo da apresentação: [Churn Prediction — Apresentação do Trabalho](https://youtu.be/InhwU5HmnLM)
+🔗 Assista ao vídeo da apresentação: [Sistema de Recomendação — Apresentação do Trabalho](https://youtu.be/InhwU5HmnLM)
 
 ---
 
