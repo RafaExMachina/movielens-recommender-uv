@@ -175,7 +175,7 @@ stages:
       size: 741373
     - path: models/registry/training_run.json
       hash: md5
-      md5: e74499b79ec5999c84b5045df055fa99
+      md5: 901af49c8ea22dadbb300cbcbc42c86f
       size: 261
     - path: reports/metrics/train_metrics.json
       hash: md5
@@ -335,3 +335,57 @@ stages:
       hash: md5
       md5: ee1c04a603b2983413c2a104a4a616d3
       size: 1850
+  register:
+    cmd: uv run python scripts/register_model.py
+    deps:
+    - path: models/registry/training_run.json
+      hash: md5
+      md5: 901af49c8ea22dadbb300cbcbc42c86f
+      size: 261
+    - path: reports/metrics/evaluation_metrics.json
+      hash: md5
+      md5: fa23536fa7a96fb4d886ed9f604225a4
+      size: 256
+    - path: reports/metrics/model_comparison.json
+      hash: md5
+      md5: ee1c04a603b2983413c2a104a4a616d3
+      size: 1850
+    - path: scripts/register_model.py
+      hash: md5
+      md5: 73f920c052e9a08dcd7f3730ca3721d6
+      size: 9129
+    - path: src/recommender/repositories/artifact_repository.py
+      hash: md5
+      md5: e35b53e057140a47588be9419c0d43e0
+      size: 1535
+    - path: src/recommender/tracking/model_registry.py
+      hash: md5
+      md5: 44af77bea7fcccf5a2a3093893605ba3
+      size: 8363
+    - path: src/recommender/utils/config.py
+      hash: md5
+      md5: 505ad66378e57f36caa6c28b39807af8
+      size: 430
+    - path: src/recommender/utils/settings.py
+      hash: md5
+      md5: 8c587e984ad0ddcbafa684d7d4dde5e4
+      size: 1414
+    params:
+      params.yaml:
+        artifacts.evaluation_metrics_path:
+          reports/metrics/evaluation_metrics.json
+        artifacts.model_comparison_path: reports/metrics/model_comparison.json
+        artifacts.registered_model_path: models/registry/registered_model.json
+        artifacts.training_run_path: models/registry/training_run.json
+        quality_gate.maximum_rmse: 0.26
+        registry:
+          model_name: movielens-mlp-recommender
+          description: Modelo neural MLP PyTorch para previsão de ratings no
+            MovieLens 100K.
+          initial_alias: candidate
+          await_registration_seconds: 300
+    outs:
+    - path: models/registry/registered_model.json
+      hash: md5
+      md5: a521e1febf411ebb8eca8129054c7487
+      size: 446

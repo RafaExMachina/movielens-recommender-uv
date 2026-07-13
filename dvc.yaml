@@ -137,3 +137,25 @@ stages:
     metrics:
       - reports/metrics/model_comparison.json:
           cache: false
+
+  register:
+    cmd: uv run python scripts/register_model.py
+    deps:
+      - models/registry/training_run.json
+      - reports/metrics/evaluation_metrics.json
+      - reports/metrics/model_comparison.json
+      - scripts/register_model.py
+      - src/recommender/tracking/model_registry.py
+      - src/recommender/repositories/artifact_repository.py
+      - src/recommender/utils/config.py
+      - src/recommender/utils/settings.py
+    params:
+      - registry
+      - quality_gate.maximum_rmse
+      - artifacts.training_run_path
+      - artifacts.evaluation_metrics_path
+      - artifacts.model_comparison_path
+      - artifacts.registered_model_path
+    outs:
+      - models/registry/registered_model.json:
+          cache: false

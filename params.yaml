@@ -28,6 +28,7 @@ artifacts:
   baseline_metrics_path: reports/metrics/baseline_metrics.json
   model_comparison_path: reports/metrics/model_comparison.json
   training_run_path: models/registry/training_run.json
+  registered_model_path: models/registry/registered_model.json
 
 evaluation:
   top_k: 10
@@ -48,3 +49,9 @@ baselines:
 quality_gate:
   selection_metric: rmse
   maximum_rmse: 0.26
+
+registry:
+  model_name: movielens-mlp-recommender
+  description: Modelo neural MLP PyTorch para previsão de ratings no MovieLens 100K.
+  initial_alias: candidate
+  await_registration_seconds: 300
