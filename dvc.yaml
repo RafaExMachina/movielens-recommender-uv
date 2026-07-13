@@ -159,3 +159,50 @@ stages:
     outs:
       - models/registry/registered_model.json:
           cache: false
+
+  promote_staging:
+    cmd: uv run python scripts/promote_model.py staging
+    deps:
+      - models/registry/registered_model.json
+      - reports/metrics/evaluation_metrics.json
+      - reports/metrics/model_comparison.json
+      - scripts/promote_model.py
+      - src/recommender/tracking/model_promotion.py
+      - src/recommender/repositories/artifact_repository.py
+      - src/recommender/utils/config.py
+      - src/recommender/utils/settings.py
+    params:
+      - model.name
+      - promotion
+      - quality_gate.maximum_rmse
+      - artifacts.registered_model_path
+      - artifacts.evaluation_metrics_path
+      - artifacts.model_comparison_path
+      - artifacts.staging_promotion_path
+    outs:
+      - models/registry/staging_promotion.json:
+          cache: false
+
+  promote_production:
+    cmd: uv run python scripts/promote_model.py production
+    deps:
+      - models/registry/registered_model.json
+      - models/registry/staging_promotion.json
+      - reports/metrics/evaluation_metrics.json
+      - reports/metrics/model_comparison.json
+      - scripts/promote_model.py
+      - src/recommender/tracking/model_promotion.py
+      - src/recommender/repositories/artifact_repository.py
+      - src/recommender/utils/config.py
+      - src/recommender/utils/settings.py
+    params:
+      - model.name
+      - promotion
+      - quality_gate.maximum_rmse
+      - artifacts.registered_model_path
+      - artifacts.evaluation_metrics_path
+      - artifacts.model_comparison_path
+      - artifacts.production_promotion_path
+    outs:
+      - models/registry/production_promotion.json:
+          cache: false

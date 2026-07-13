@@ -380,8 +380,8 @@ stages:
         quality_gate.maximum_rmse: 0.26
         registry:
           model_name: movielens-mlp-recommender
-          description: Modelo neural MLP PyTorch para previsão de ratings no
-            MovieLens 100K.
+          description: "Modelo neural MLP PyTorch para previsão de ratings no dataset
+            MovieLens 100K.\n"
           initial_alias: candidate
           await_registration_seconds: 300
     outs:
@@ -389,3 +389,136 @@ stages:
       hash: md5
       md5: a521e1febf411ebb8eca8129054c7487
       size: 446
+  promote_staging:
+    cmd: uv run python scripts/promote_model.py staging
+    deps:
+    - path: models/registry/registered_model.json
+      hash: md5
+      md5: a521e1febf411ebb8eca8129054c7487
+      size: 446
+    - path: reports/metrics/evaluation_metrics.json
+      hash: md5
+      md5: fa23536fa7a96fb4d886ed9f604225a4
+      size: 256
+    - path: reports/metrics/model_comparison.json
+      hash: md5
+      md5: ee1c04a603b2983413c2a104a4a616d3
+      size: 1850
+    - path: scripts/promote_model.py
+      hash: md5
+      md5: fe9fd0a03e63c8e929f896d74e3145f8
+      size: 11734
+    - path: src/recommender/repositories/artifact_repository.py
+      hash: md5
+      md5: e35b53e057140a47588be9419c0d43e0
+      size: 1535
+    - path: src/recommender/tracking/model_promotion.py
+      hash: md5
+      md5: 8808bb202314755173a12c87b3b6ab9c
+      size: 9137
+    - path: src/recommender/utils/config.py
+      hash: md5
+      md5: 505ad66378e57f36caa6c28b39807af8
+      size: 430
+    - path: src/recommender/utils/settings.py
+      hash: md5
+      md5: 8c587e984ad0ddcbafa684d7d4dde5e4
+      size: 1414
+    params:
+      params.yaml:
+        artifacts.evaluation_metrics_path:
+          reports/metrics/evaluation_metrics.json
+        artifacts.model_comparison_path: reports/metrics/model_comparison.json
+        artifacts.registered_model_path: models/registry/registered_model.json
+        artifacts.staging_promotion_path: models/registry/staging_promotion.json
+        model.name: mlp
+        promotion:
+          staging_alias: staging
+          production_alias: production
+          require_quality_gate: true
+          require_staging_before_production: true
+          require_comparison_winner: false
+          sync_legacy_stage: true
+          staging_approved_by: Rafael Costa
+          staging_approval_notes: "Modelo encaminhado para staging após aprovação
+            do quality gate, validação das métricas de teste e confirmação da rastreabilidade
+            da execução de treinamento no MLflow.\n"
+          production_approved_by: Rafael Costa
+          production_approval_notes: Modelo aprovado para production após
+            passagem pelo ambiente de staging e cumprimento do limite máximo de
+            RMSE definido para o projeto.
+        quality_gate.maximum_rmse: 0.26
+    outs:
+    - path: models/registry/staging_promotion.json
+      hash: md5
+      md5: 0b43070ddd9a73d6ad4708e3a3791406
+      size: 848
+  promote_production:
+    cmd: uv run python scripts/promote_model.py production
+    deps:
+    - path: models/registry/registered_model.json
+      hash: md5
+      md5: a521e1febf411ebb8eca8129054c7487
+      size: 446
+    - path: models/registry/staging_promotion.json
+      hash: md5
+      md5: 0b43070ddd9a73d6ad4708e3a3791406
+      size: 848
+    - path: reports/metrics/evaluation_metrics.json
+      hash: md5
+      md5: fa23536fa7a96fb4d886ed9f604225a4
+      size: 256
+    - path: reports/metrics/model_comparison.json
+      hash: md5
+      md5: ee1c04a603b2983413c2a104a4a616d3
+      size: 1850
+    - path: scripts/promote_model.py
+      hash: md5
+      md5: fe9fd0a03e63c8e929f896d74e3145f8
+      size: 11734
+    - path: src/recommender/repositories/artifact_repository.py
+      hash: md5
+      md5: e35b53e057140a47588be9419c0d43e0
+      size: 1535
+    - path: src/recommender/tracking/model_promotion.py
+      hash: md5
+      md5: 8808bb202314755173a12c87b3b6ab9c
+      size: 9137
+    - path: src/recommender/utils/config.py
+      hash: md5
+      md5: 505ad66378e57f36caa6c28b39807af8
+      size: 430
+    - path: src/recommender/utils/settings.py
+      hash: md5
+      md5: 8c587e984ad0ddcbafa684d7d4dde5e4
+      size: 1414
+    params:
+      params.yaml:
+        artifacts.evaluation_metrics_path:
+          reports/metrics/evaluation_metrics.json
+        artifacts.model_comparison_path: reports/metrics/model_comparison.json
+        artifacts.production_promotion_path:
+          models/registry/production_promotion.json
+        artifacts.registered_model_path: models/registry/registered_model.json
+        model.name: mlp
+        promotion:
+          staging_alias: staging
+          production_alias: production
+          require_quality_gate: true
+          require_staging_before_production: true
+          require_comparison_winner: false
+          sync_legacy_stage: true
+          staging_approved_by: Rafael Costa
+          staging_approval_notes: "Modelo encaminhado para staging após aprovação
+            do quality gate, validação das métricas de teste e confirmação da rastreabilidade
+            da execução de treinamento no MLflow.\n"
+          production_approved_by: Rafael Costa
+          production_approval_notes: Modelo aprovado para production após
+            passagem pelo ambiente de staging e cumprimento do limite máximo de
+            RMSE definido para o projeto.
+        quality_gate.maximum_rmse: 0.26
+    outs:
+    - path: models/registry/production_promotion.json
+      hash: md5
+      md5: 2c6a6f13660478954e0fdccdf2d9bc14
+      size: 820
